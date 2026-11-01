@@ -1,6 +1,7 @@
 # FlashDB-Zig
 
 [![CI](https://github.com/littepointR/flashdb-zig/actions/workflows/ci.yml/badge.svg)](https://github.com/littepointR/flashdb-zig/actions/workflows/ci.yml)
+[![coverage](https://img.shields.io/badge/coverage-100%25%20functions-brightgreen)](docs/TESTING.md#6-覆盖率)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 用 **Zig 从零重写**的 [FlashDB](https://github.com/armink/FlashDB)：面向裸 Flash 的超轻量级
@@ -15,12 +16,12 @@
 
 | 维度 | C 原版 | Zig 重写 | 结果 |
 |---|---|---|---|
-| Cortex-M3 ROM（`-Os` / `ReleaseSmall`） | 12,700 B | **11,808 B** | −7.0% |
-| Cortex-M3 静态 RAM | 1,144 B | **760 B** | −33.6% |
-| Cortex-M3 峰值栈 | 1,208 B | **808 B** | −33.1% |
-| Cortex-M3 CPU 周期（KV+TS 全负载） | 532,601 | **170,859** | −67.9% |
+| Cortex-M3 ROM（`-Os` / `ReleaseSmall`） | 12,700 B | **11,992 B** | -5.6% |
+| Cortex-M3 静态 RAM | 1,144 B | **760 B** | -33.6% |
+| Cortex-M3 峰值栈 | 1,208 B | **816 B** | -32.5% |
+| Cortex-M3 CPU 周期（KV+TS 全负载） | 532,601 | **170,938** | -67.9% |
 | 宿主加权 Flash 流量（16 场景合计） | 56.88 M | **51.49 M** | −9.5%，逐场景均不高于 C |
-| 宿主耗时（16 场景合计） | 4.22 ms | **0.75 ms** | −82.2% |
+| 宿主耗时（16 场景合计） | 4.83 ms | **0.86 ms** | -82.2% |
 | KV 逻辑校验和 | — | — | 8/8 与 C 完全一致 |
 | KV+TS 行为差分（逐操作） | — | — | 3,066 行全部一致；逐次掉电恢复一致 |
 | TS 存储密度（16 KiB 分区） | 308 条 | **368 条** | +19.5% |
@@ -130,7 +131,7 @@ python tools\fetch_reference.py  # 拉取 FlashDB 2.2.99（固定 commit）到 r
 
 ```powershell
 .tools\zig\zig.exe build test          # 单元测试 + 集成测试 + 模型对拍（54/54）
-python tools\coverage.py                 # 函数覆盖率（当前 99.4%，公开 API 100%）
+python tools\coverage.py                 # 函数覆盖率（当前 100%，公开 API 100%）
 .tools\zig\zig.exe build               # 库 + 示例 + 宿主基准程序
 .tools\zig\zig.exe build bench         # 直接跑宿主基准 -> zig-out\bin\flashdb-bench.exe
 ./zig-out/bin/flashdb-bench --mode check --wg 8   # 基准自检（8 bit 写粒度）

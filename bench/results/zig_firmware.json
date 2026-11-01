@@ -14,7 +14,7 @@
     "size_tool": "D:\\Program Files\\LLVM\\bin\\llvm-size.exe",
     "qemu": "D:\\Program Files\\qemu\\qemu-system-arm.exe",
     "c_harness_compiler": "zig cc 0.18.0-dev.753+1420479be",
-    "git_revision": "2842ac7",
+    "git_revision": "9c54dbd",
     "git_dirty": true
   },
   "flags": {
@@ -108,16 +108,16 @@
       "variant": "plain",
       "elf": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\fw_zig_plain.elf",
       "sections": {
-        "text": 10204,
+        "text": 10388,
         "rodata": 1580,
         "data": 24,
         "bss": 736
       },
-      "rom": 11808,
+      "rom": 11992,
       "static_ram": 760,
       "stack_limit": 8192,
-      "stack": 808,
-      "stack_init": 408,
+      "stack": 816,
+      "stack_init": 416,
       "results": {
         "kv_writes": 1596,
         "kv_gets": 64,
@@ -128,7 +128,7 @@
         "ts_iterated": 200,
         "ts_checksum": "0x10d90680"
       },
-      "result_line": "RESULT text=10204 rodata=1580 data=24 bss=736 sim_flash=32768 stack=808 stack_init=408 stack_limit=8192 kv_writes=1596 kv_gets=64 kv_iterated=64 kv_checksum=0x4b3486a4 kv_iter_checksum=0x0e250daa ts_appends=200 ts_iterated=200 ts_checksum=0x10d90680 rc=0",
+      "result_line": "RESULT text=10388 rodata=1580 data=24 bss=736 sim_flash=32768 stack=816 stack_init=416 stack_limit=8192 kv_writes=1596 kv_gets=64 kv_iterated=64 kv_checksum=0x4b3486a4 kv_iter_checksum=0x0e250daa ts_appends=200 ts_iterated=200 ts_checksum=0x10d90680 rc=0",
       "qemu": {
         "exit_code": 0,
         "log": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\qemu_zig_plain.log"
@@ -139,16 +139,16 @@
       "variant": "instrumented",
       "elf": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\fw_zig_instrumented.elf",
       "sections": {
-        "text": 12504,
+        "text": 12680,
         "rodata": 1968,
         "data": 32,
         "bss": 752
       },
-      "rom": 14504,
+      "rom": 14680,
       "static_ram": 784,
       "stack_limit": 8192,
-      "stack": 888,
-      "stack_init": 504,
+      "stack": 896,
+      "stack_init": 512,
       "results": {
         "kv_writes": 1596,
         "kv_gets": 64,
@@ -159,36 +159,36 @@
         "ts_iterated": 200,
         "ts_checksum": "0x10d90680"
       },
-      "result_line": "RESULT text=12504 rodata=1968 data=32 bss=752 sim_flash=32768 stack=888 stack_init=504 stack_limit=8192 st_set=992 st_get=920 st_iter=760 st_gc=992 st_ts_append=648 st_ts_iter=768 kv_writes=1596 kv_gets=64 kv_iterated=64 kv_checksum=0x4b3486a4 kv_iter_checksum=0x0e250daa ts_appends=200 ts_iterated=200 ts_checksum=0x10d90680 cycles_src=systick cycles_tick_hz=25000000 cycles_calib_insn=20000 cycles_calib_ticks=500 cycles_mount=5133 cycles_kv=159999 cycles_ts=5727 cycles_total=170859 cyc_st_set=372 cyc_st_get=351 cyc_st_iter=3144 cyc_st_gc=119762 cyc_st_ts_append=345 cyc_st_ts_iter=2579 rc=0",
+      "result_line": "RESULT text=12680 rodata=1968 data=32 bss=752 sim_flash=32768 stack=896 stack_init=512 stack_limit=8192 st_set=1000 st_get=928 st_iter=760 st_gc=1000 st_ts_append=648 st_ts_iter=768 kv_writes=1596 kv_gets=64 kv_iterated=64 kv_checksum=0x4b3486a4 kv_iter_checksum=0x0e250daa ts_appends=200 ts_iterated=200 ts_checksum=0x10d90680 cycles_src=systick cycles_tick_hz=25000000 cycles_calib_insn=20000 cycles_calib_ticks=500 cycles_mount=5133 cycles_kv=160068 cycles_ts=5737 cycles_total=170938 cyc_st_set=372 cyc_st_get=350 cyc_st_iter=3157 cyc_st_gc=119887 cyc_st_ts_append=345 cyc_st_ts_iter=2589 rc=0",
       "qemu": {
         "exit_code": 0,
         "log": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\qemu_zig_instrumented.log"
       },
       "repeatable": true,
       "stack_phases": {
-        "set": 992,
-        "get": 920,
+        "set": 1000,
+        "get": 928,
         "iter": 760,
-        "gc": 992,
+        "gc": 1000,
         "ts_append": 648,
         "ts_iter": 768
       },
       "cycles": {
         "source": "systick",
         "mount": 5133,
-        "kv": 159999,
-        "ts": 5727,
-        "total": 170859,
+        "kv": 160068,
+        "ts": 5737,
+        "total": 170938,
         "tick_hz": 25000000,
         "calib_insn": 20000,
         "calib_ticks": 500,
         "phases": {
           "set": 372,
-          "get": 351,
-          "iter": 3144,
-          "gc": 119762,
+          "get": 350,
+          "iter": 3157,
+          "gc": 119887,
           "ts_append": 345,
-          "ts_iter": 2579
+          "ts_iter": 2589
         }
       }
     }
