@@ -133,6 +133,7 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
         /// Next way to replace per cache set (2 bits each, round-robin).
         cache_rr: u64 = 0,
 
+
         // ---- public API --------------------------------------------------
 
         /// Mount (or initialise) the database on `f`. The database takes a copy
@@ -254,15 +255,47 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
             }
         }
 
-        /// Default key/value pair used by `autoUpdate`.
+        /// Default key/value pair used by `autoUpdate`, `applyDefaults` and
+        /// `restoreDefaults`.
         pub const DefaultKv = struct {
             key: []const u8,
             value: []const u8,
         };
 
+        /// Create every default key that does not exist yet and leave existing
+        /// values untouched. Returns the number of keys written. This is the
+        /// migration step upstream runs under `FDB_KV_AUTO_UPDATE`; call it after
+        /// `mount` when the schema version did not change but new defaults were
+        /// added.
+        pub fn applyDefaults(self: *Self, defaults: []const DefaultKv) Error!u32 {
+            var written: u32 = 0;
+            for (defaults) |kv| {
+                var rec: Record = undefined;
+                if (!try self.findVisible(kv.key, &rec)) {
+                    try self.set(kv.key, kv.value);
+                    written += 1;
+                }
+            }
+            return written;
+        }
+
+        /// Overwrite every default key with its default value, discarding user
+        /// changes (factory-reset helper). Returns the number of keys written.
+        /// Equivalent to upstream's `fdb_kv_set_default`.
+        pub fn restoreDefaults(self: *Self, defaults: []const DefaultKv) Error!u32 {
+            var written: u32 = 0;
+            for (defaults) |kv| {
+                try self.set(kv.key, kv.value);
+                written += 1;
+            }
+            return written;
+        }
+
         /// Schema-migration helper equivalent to `FDB_KV_AUTO_UPDATE`: when the
-        /// stored `__ver_num__` differs from `version`, every missing default key
-        /// is created and the new version is stored.
+        /// stored `__ver_num__` differs from `version` (or the database was just
+        /// created), every missing default key is created and the new version is
+        /// stored. Existing values are never overwritten; use
+        /// `restoreDefaults` for that.
         pub fn autoUpdate(self: *Self, version: u32, defaults: []const DefaultKv) Error!void {
             var vbuf: [4]u8 = undefined;
             var stored: u32 = 0;
@@ -270,10 +303,7 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
                 if (n == 4) stored = format.rd32(&vbuf);
             }
             if (stored == version) return;
-            for (defaults) |kv| {
-                var rec: Record = undefined;
-                if (!try self.findVisible(kv.key, &rec)) try self.set(kv.key, kv.value);
-            }
+            _ = try self.applyDefaults(defaults);
             format.wr32(&vbuf, version);
             try self.set(ver_num_key, &vbuf);
         }
@@ -1281,4 +1311,61 @@ test "kvdb readers and GC resync over a corrupted record header" {
     try std.testing.expectEqual(@as(?u32, 4), try db3.get("aa", &buf));
     try std.testing.expectEqual(@as(?u32, 4), try db3.get("cc", &buf));
     try std.testing.expectEqual(@as(u64, 0), db3.dev.flash.stats.set_bit_attempts);
+}
+
+test "kvdb defaults: apply missing and restore all" {
+    const defaults = [_]TestDb.DefaultKv{
+        .{ .key = "boot_count", .value = "0007" },
+        .{ .key = "name", .value = "zig" },
+    };
+    var mem: [16 * 1024]u8 = undefined;
+    var db: TestDb = undefined;
+    try db.mount(freshFlash(&mem));
+    var buf: [16]u8 = undefined;
+
+    // Version 0 -> 1 runs upstream's auto-update step: missing defaults are
+    // created and `__ver_num__` is stored; existing values stay untouched.
+    try db.autoUpdate(1, &defaults);
+    try std.testing.expectEqual(@as(u32, 3), try db.count());
+    var n = (try db.get("name", &buf)).?;
+    try std.testing.expectEqualSlices(u8, "zig", buf[0..n]);
+    n = (try db.get("boot_count", &buf)).?;
+    try std.testing.expectEqualSlices(u8, "0007", buf[0..n]);
+    try std.testing.expectEqual(@as(u64, 0), db.dev.flash.stats.set_bit_attempts);
+
+    // Same version again: no default is rewritten.
+    try db.set("name", "changed");
+    try db.autoUpdate(1, &defaults);
+    n = (try db.get("name", &buf)).?;
+    try std.testing.expectEqualSlices(u8, "changed", buf[0..n]);
+
+    // applyDefaults only creates the missing key and keeps user values.
+    try std.testing.expect(try db.delete("boot_count"));
+    try std.testing.expectEqual(@as(u32, 1), try db.applyDefaults(&defaults));
+    n = (try db.get("boot_count", &buf)).?;
+    try std.testing.expectEqualSlices(u8, "0007", buf[0..n]);
+    n = (try db.get("name", &buf)).?;
+    try std.testing.expectEqualSlices(u8, "changed", buf[0..n]);
+
+    // restoreDefaults overwrites user values (upstream `fdb_kv_set_default`).
+    try std.testing.expectEqual(@as(u32, 2), try db.restoreDefaults(&defaults));
+    n = (try db.get("name", &buf)).?;
+    try std.testing.expectEqualSlices(u8, "zig", buf[0..n]);
+
+    // Remount: nothing is missing and the stored version is preserved.
+    var db2: TestDb = undefined;
+    try db2.mount(TestFlash.init(&mem));
+    try std.testing.expectEqual(@as(u32, 0), try db2.applyDefaults(&defaults));
+    try std.testing.expectEqual(@as(u32, 3), try db2.count());
+
+    // formatAll wipes the version key, so the next auto-update repopulates the
+    // default set on the fresh database (same effect as upstream's init-time
+    // default write on an unpartitioned partition).
+    try db2.formatAll();
+    try std.testing.expectEqual(@as(u32, 0), try db2.count());
+    try db2.autoUpdate(1, &defaults);
+    try std.testing.expectEqual(@as(u32, 3), try db2.count());
+    n = (try db2.get("name", &buf)).?;
+    try std.testing.expectEqualSlices(u8, "zig", buf[0..n]);
+    try std.testing.expectEqual(@as(u64, 0), db2.dev.flash.stats.set_bit_attempts);
 }
