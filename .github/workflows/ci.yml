@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: build & test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install the pinned Zig nightly
+        run: python tools/bootstrap.py
+
+      - name: Add Zig to PATH (Linux)
+        if: runner.os == 'Linux'
+        run: echo "${{ github.workspace }}/.tools/zig" >> "$GITHUB_PATH"
+
+      - name: Add Zig to PATH (Windows)
+        if: runner.os == 'Windows'
+        run: echo "${{ github.workspace }}\.tools\zig" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Zig version
+        run: zig version
+
+      - name: Unit + integration + model tests
+        run: zig build test --summary all
+
+      - name: Build the library, examples and host benchmark
+        run: zig build --summary all
+
+      - name: Host benchmark self-checks (both write granularities)
+        run: |
+          zig-out/bin/flashdb-bench --mode check --wg 8
+          zig-out/bin/flashdb-bench --mode check --wg 1
+        shell: bash
+
+      - name: Fetch the upstream C reference sources
+        run: python tools/fetch_reference.py
+
+      - name: C reference harness self-checks (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          chmod +x scripts/*.ps1 2>/dev/null || true
+          pwsh -NoProfile -File scripts/check_bench_c.ps1

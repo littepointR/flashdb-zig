@@ -1,0 +1,15 @@
+FlashDB-Zig
+Copyright 2026 FlashDB-Zig contributors
+
+This product includes a modified rewrite of concepts and algorithms from
+FlashDB (https://github.com/armink/FlashDB), Copyright (c) 2020-2023 Armink,
+licensed under the Apache License 2.0.
+
+The directory `reference/FlashDB/` contains an unmodified copy of FlashDB
+2.2.99 and is not part of the library build; it is used only as a differential
+test reference. The C programs under `bench/c/`, `firmware/c/` and
+`firmware/common/` are measurement-harness code written for this project (they
+link the unmodified upstream library for comparison).
+
+The library itself (`src/`) is an independent Zig implementation and does not
+contain upstream C code.

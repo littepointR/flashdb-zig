@@ -1,0 +1,21 @@
+{
+  "zig": {
+    "version": "0.18.0-dev.753+1420479be",
+    "channel": "nightly",
+    "download_index": "https://ziglang.org/download/index.json",
+    "build_archive": "https://ziglang.org/builds/zig-{platform}-{version}.{ext}",
+    "pinned_at": "2026-11-01",
+    "sha256_x86_64_windows": "39b40aac235cc11f2f0af3608677e46866451b4e1fe77002374ecd7a22a5a79",
+    "installed_to": ".tools/zig/",
+    "installer": "tools/bootstrap.py"
+  },
+  "reference": {
+    "project": "FlashDB",
+    "version": "2.2.99",
+    "commit": "db0afd954ea0f11397e43f6baf3654979d446345",
+    "url": "https://github.com/armink/FlashDB",
+    "local": "reference/FlashDB",
+    "fetcher": "tools/fetch_reference.py",
+    "note": "read-only vendored snapshot, used only as the C reference for differential tests and benchmarks"
+  }
+}

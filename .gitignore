@@ -1,0 +1,26 @@
+# Zig build products
+.zig-cache/
+zig-out/
+build/
+
+# Pinned toolchain (downloaded by tools/bootstrap.py)
+.tools/
+
+# Upstream reference sources (fetched by tools/fetch_reference.py; never edited)
+reference/
+
+# Scratch / throwaway work
+.scratch/
+*.log
+
+# scratch probes
+probe_*.zig
+io_probe*
+
+# teammate scratch probes
+bench/zig/_probe*
+firmware/zig/ts_probe.zig
+
+# Python bytecode
+__pycache__/
+*.pyc

@@ -1,0 +1,14 @@
+# Normalise line endings: LF in the repository and in the working tree.
+* text=auto eol=lf
+
+# Windows scripts stay CRLF so they also run under Windows PowerShell 5.1.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary artefacts (none tracked today; kept for future additions).
+*.png binary
+*.jpg binary
+*.pdf binary
+*.elf binary
+*.bin binary
