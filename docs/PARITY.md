@@ -45,13 +45,13 @@
 | 上游 | 本库 | 说明 |
 |---|---|---|
 | `fdb_kv_set`（字符串） | `set(key, value: []const u8)` | 不要求 NUL 结尾 |
-| `fdb_kv_get`（内部静态缓冲的 NUL 结尾字符串，仅当值为字符串且 ≤ `FDB_STR_KV_VALUE_MAX_SIZE`，默认 32 字节，否则返回 NULL） | `get(key, buf) ?u32` | 返回长度并拷入调用方缓冲（任意二进制、可重入），不写 NUL；需要字符串时用 `buf[0..n]` |
+| `fdb_kv_get`（内部静态缓冲的 NUL 结尾字符串，仅当值为字符串且 ≤ `FDB_STR_KV_VALUE_MAX_SIZE`，默认 32 字节，否则返回 NULL） | `getString(key, buf) ?[]const u8`，底层 `get(key, buf) ?u32` | `getString` 追加 NUL 并返回切片，缓冲不足返回 `error.BufferTooSmall`；`get` 返回长度并复制任意二进制（可重入） |
 | `fdb_kv_set_blob` / `fdb_kv_get_blob` | 同上 | 本库 value 天然支持任意二进制 |
 | `fdb_kv_del` | `delete(key) !bool` | 返回是否真的删除 |
 | `fdb_kv_set_default` | `restoreDefaults(defaults) !u32` | 强制把每个默认键写回默认值（工厂复位），返回写入数量 |
 | `FDB_KV_AUTO_UPDATE`（`kv_auto_update`） | `autoUpdate(version, defaults)` | 仅在 `__ver_num__` 变化时补缺失默认键并更新版本 |
 | `fdb_kv_get_obj` + `fdb_kv_to_blob` + `fdb_blob_read` | `iterator()` → `Entry`（含 `addr/value_len/crc`）→ `readValue(buf, entry)`；单键读取直接用 `get` | 同样是"先定位再读值"，一次性校验 CRC32 |
-| `fdb_kv_iterator_init` / `fdb_kv_iterate`（回调） | `iterator()` + `next()` + `readValue()` | 可 `break` 提前结束，无回调 |
+| `fdb_kv_iterator_init` / `fdb_kv_iterate`（回调） | `iterator()` + `next()` + `readValue()`；迭代器带 `iterated_count` / `iterated_value_bytes` / `iterated_obj_bytes` | 可 `break` 提前结束，无回调；统计字段与上游 `iterated_*` 对应 |
 | `fdb_kv_print` | 未提供 | no_std 无默认日志；遍历 iterator 即可打印 |
 | 缓存失效/统计 | 无公开接口 | 缓存是内部优化，不暴露统计 |
 | 单键值上限 | `max_value_len` / `maxValueLenFor(key_len)` | 键越短可存的值越大，逐键精确 |
@@ -87,13 +87,13 @@
 
 | 项目 | 现状与建议 |
 |---|---|
-| 文件模式后端（`FDB_USING_FILE_POSIX_MODE`） | 未实现。宿主测试用 `sim.RamFlash`；如有需要，实现一个 `read/write/erase` 的文件驱动即可，库本身无需改动 |
-| 多线程/中断锁回调 | 未实现。若要共享实例，可加 `Config.lock: ?fn() void` 并在公开入口加钩子（会改动所有 API 的调用约定） |
-| 调试打印（`fdb_kv_print`、`FDB_INFO` 日志） | 未实现。可加可选的 `dump(writer)`，依赖调用方提供 writer |
-| `fdb_kv_get` 的 NUL 便捷语义 | 未实现。当前返回长度；可加 `getString(key, buf) ?[]const u8` |
-| 迭代器统计字段（`iterated_cnt/obj_bytes/value_bytes`） | 未实现，纯便利功能 |
+| 多线程/中断锁回调 | 未实现。若要共享实例，可加 `Config.lock` 并在公开入口加钩子（会改动所有 API 的调用约定，且需避免嵌套加锁） |
+| 调试打印（`fdb_kv_print`、`FDB_INFO` 日志） | 未实现。可加可选的 `dump(sink)`（自定义 `write` 回调，不依赖 `std`）；示例已展示遍历打印 |
 | FAL 设备/分区名字注册表 | 不需要：`flash.Partition(Dev)` 已覆盖多分区，且无运行期字符串表开销 |
 | 同物理 Flash 混用不同写粒度 | 不支持（上游同样不支持）；每个驱动固定 `write_gran_bits` |
+| 运行期 control 命令、`deinit`、大端 | 分别见 §5：编译期配置、无资源、不支持 |
+
+文件模式（`FDB_USING_FILE_POSIX_MODE`）已作为**宿主辅助模块**实现，见 §8。
 
 ## 7. 本轮补齐的缺口
 
@@ -102,3 +102,30 @@
   安全调用（已存在键不会被覆盖）。
 - `autoUpdate(version, defaults)` 改为复用 `applyDefaults`，语义与上游 `kv_auto_update` 一致：
   仅当版本号变化时补缺失键并更新版本。
+- `getString(key, buf)`：等价上游 `fdb_kv_get` 的 NUL 语义（缓冲不足返回 `error.BufferTooSmall`）。
+- KV 迭代器统计字段 `iterated_count` / `iterated_value_bytes` / `iterated_obj_bytes`：等价上游
+  `iterated_cnt` / `iterated_value_bytes` / `iterated_obj_bytes`。
+- 宿主文件模式：`host/file_flash.zig` + `flashdb_host` 模块 + `examples/file_backed.zig`（见 §8）。
+
+## 8. 宿主文件模式（新增）
+
+上游的 `FDB_USING_FILE_POSIX_MODE` 用普通文件当 Flash；本库对应的是
+[`host/file_flash.zig`](../host/file_flash.zig)，作为**独立模块** `flashdb_host` 提供：
+
+```zig
+const host = @import("flashdb_host");
+const FileFlash = host.FileFlash(.{ .file_size = 64 * 1024, .block_size = 4096 });
+
+var fl = try FileFlash.open(io, std.Io.Dir.cwd(), "db.bin", .open_or_create);
+defer fl.close();
+var db: flashdb.Kvdb(FileFlash, .{ .sector_size = 4096, .sector_count = 4 }) = undefined;
+try db.mount(fl);
+```
+
+- 库本体仍是 `no_std`：只有这一个文件导入 `std`，`flashdb.zig` 不引用它。
+- 语义：文件即原始 NOR 镜像；`erase` 把整块填回擦除字节（0xFF），读写是库已对齐的
+  positional I/O。没有硬件位清除保护（与上游文件模式一致，库本身也不会做 0→1 的写）。
+- 文件大小固定：`open` 校验长度，不匹配返回 `error.SizeMismatch`；`create` 会预填擦除字节。
+- 测试：`host/file_flash_test.zig`（随 `zig build test` 运行）覆盖擦除语义、越界/未对齐、
+  固定长度校验以及"文件跨驱动实例持久化"；示例 `examples/file_backed.zig` 连续运行两次
+  `boot_count` 递增。

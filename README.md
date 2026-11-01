@@ -16,12 +16,12 @@
 
 | 维度 | C 原版 | Zig 重写 | 结果 |
 |---|---|---|---|
-| Cortex-M3 ROM（`-Os` / `ReleaseSmall`） | 12,700 B | **11,992 B** | -5.6% |
+| Cortex-M3 ROM（`-Os` / `ReleaseSmall`） | 12,700 B | **12,036 B** | -5.2% |
 | Cortex-M3 静态 RAM | 1,144 B | **760 B** | -33.6% |
-| Cortex-M3 峰值栈 | 1,208 B | **816 B** | -32.5% |
-| Cortex-M3 CPU 周期（KV+TS 全负载） | 532,601 | **170,938** | -67.9% |
-| 宿主加权 Flash 流量（16 场景合计） | 56.88 M | **51.49 M** | −9.5%，逐场景均不高于 C |
-| 宿主耗时（16 场景合计） | 4.83 ms | **0.86 ms** | -82.2% |
+| Cortex-M3 峰值栈 | 1,208 B | **840 B** | -30.5% |
+| Cortex-M3 CPU 周期（KV+TS 全负载） | 532,601 | **170,780** | -67.9% |
+| 宿主加权 Flash 流量（16 场景合计） | 56.88 M | **51.49 M** | -9.5%，逐场景均不高于 C |
+| 宿主耗时（16 场景合计） | 5.23 ms | **0.78 ms** | -85.0% |
 | KV 逻辑校验和 | — | — | 8/8 与 C 完全一致 |
 | KV+TS 行为差分（逐操作） | — | — | 3,066 行全部一致；逐次掉电恢复一致 |
 | TS 存储密度（16 KiB 分区） | 308 条 | **368 条** | +19.5% |
@@ -130,7 +130,7 @@ python tools\fetch_reference.py  # 拉取 FlashDB 2.2.99（固定 commit）到 r
 `0.18.0-dev.753+1420479be`）。Linux/macOS 下同一路径为 `.tools/zig/zig`。
 
 ```powershell
-.tools\zig\zig.exe build test          # 单元测试 + 集成测试 + 模型对拍（55/55）
+.tools\zig\zig.exe build test          # 单元测试 + 集成测试 + 模型对拍（58/58）
 python tools\coverage.py                 # 函数覆盖率（当前 100%，公开 API 100%）
 .tools\zig\zig.exe build               # 库 + 示例 + 宿主基准程序
 .tools\zig\zig.exe build bench         # 直接跑宿主基准 -> zig-out\bin\flashdb-bench.exe
@@ -168,6 +168,7 @@ python tools\compare_bench.py bench\results\c_wg8_host.json bench\results\zig_wg
 | `firmware/` | Cortex-M3/QEMU 固件对比：`firmware/c/`、`firmware/zig/`、`firmware/common/`（共用启动/半主机/栈测量） |
 | `tests/` | 集成测试、随机模型对拍 |
 | `docs/` | 设计、基准、测试、优化记录；[`PARITY.md`](docs/PARITY.md) 是上游 FlashDB 功能对照表 |
+| `host/` | 宿主辅助模块：`file_flash.zig` 文件后备 Flash 驱动（等价上游文件模式；独立 `flashdb_host` 模块，库本体不依赖 `std`） |
 | `reference/` | 上游 FlashDB 2.2.99 源码（只读，仅用于差分测试，不参与构建） |
 | `scripts/`, `tools/` | 基准/固件/差分测试脚本与报告工具 |
 
