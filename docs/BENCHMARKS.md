@@ -101,6 +101,81 @@ KVDB + TSDB 全工作负载（64 键写入、32 更新、1500 次 GC churn、64 
 
 instrumented 变体（诊断口径：两侧各带周期/分阶段栈计数）：ROM 15,140 vs 14,616（1.04×，+524 B）、静态 RAM 816 vs 1,152（0.71×）、峰值栈 928 vs 1,288（0.72×）。分阶段栈峰值（C → Zig，字节）：set 752→1024、get 792→960、iter 616→792、gc 1328→1024、ts_append 584→656、ts_iter 656→784。主口径（plain）全面不劣；instrumented 差值只来自两侧诊断代码，不影响发布镜像。
 
+### 3.1 栈峰值归因：为什么 Zig 的栈更小
+
+栈峰值由画栈法测得（`firmware/common/stack.c`，两侧共用同一套脚手架与工作负载）：
+plain 镜像 **C 1,208 B vs Zig 848 B（−29.8%）**。但逐阶段看（instrumented 变体，两侧
+同样的阶段计时/画栈代码）差异并不是"处处更小"：
+
+| 阶段 | C 峰值 | Zig 峰值 | 说明 |
+|---|---:|---:|---|
+| set | 752 | 1,024 | Zig 的 `set` 单帧更大 |
+| get | 792 | 960 | 同上 |
+| iter | 616 | 792 | Zig 迭代器持有 `name_buf` |
+| **gc** | **1,328** | **1,024** | **C 的 GC 调用链最深，是整轮峰值的来源** |
+| ts_append | 584 | 656 | |
+| ts_iter | 656 | 784 | |
+
+真正的差别在**调用链长度和逐层携带的数据**，而不是单帧大小。用
+`tools/stack_frames.py` 从两侧固件对象反汇编统计的帧大小（cortex-m3、`-Os` /
+`ReleaseSmall`、同一份配置）：
+
+| C（`fdb_kvdb.o`） | 帧 | Zig（`zig_plain.o`，KVDB） | 帧 |
+|---|---:|---|---:|
+| `fdb_kv_set_blob` | 40 | `set` | 144 |
+| `create_kv_blob` | 80 | `allocRec`（GC 循环已内联） | 80 |
+| `alloc_kv` | 56 | `moveRecord` | 112 |
+| `gc_collect_by_free_size` | 96 | `readValue` | 128 |
+| `sector_iterator`（回调分发） | 40 | `findVisible` | 256 |
+| `do_gc` | 160 | `scanSector`（mount 侧） | 152 |
+| `kv_iterator`（回调分发） | 72 | `readRecordHeader` | 48 |
+| `read_sector_info` | 136 | `resync` / `findFreeOffset` | 64 |
+| `move_kv` | 248 | `readSectorInfo`（TSDB） | 48 |
+| `read_kv` | 104 | | |
+
+C 的一次"写入触发 GC"路径：
+
+```
+fdb_kv_set_blob 40 → create_kv_blob 80 → alloc_kv 56
+→ gc_collect_by_free_size 96 → sector_iterator 40 → do_gc 160
+→ kv_iterator 72 → move_kv 248 → read_kv 104 (+ read_sector_info 136)
+≈ 1,000 B 以上，再加 FAL 与 workload 脚手架即 1,208 B
+```
+
+Zig 的同一路径：
+
+```
+set 144 → allocRec 80（collectOldest 内联成循环）→ moveRecord 112
+→ readValue 128 → readRecordHeader 48  ≈ 512 B，加脚手架即 848 B
+```
+
+原因可以归纳为四点：
+
+1. **C 用函数指针回调组织遍历/GC**（`sector_iterator`、`kv_iterator` 接收
+   `bool (*cb)(...)`）。回调对编译器是不透明的，无法内联，于是每一层都留下独立栈帧；
+   Zig 的 GC/扫描是 `allocRec` 内的普通循环（`collectOldest` 被内联），只有 3–4 层。
+2. **C 每层按值持有大对象**：`struct fdb_kv` 约 92 B（含 `name[FDB_KV_NAME_MAX]`），
+   `struct kvdb_sec_info`、`struct fdb_blob`、按写粒度对齐的状态表
+   （`_FDB_WRITE_STATUS`）再叠加；`read_sector_info` 单帧 136 B 就是在栈上放扇区头。
+   Zig 的 `Record`/`Header` 只有 16–20 B，扇区/缓存状态都在 `.bss`（`empty_off[]`、
+   `seqs[]`、`order[]`、cache 表），栈上只有小标量和按需的 `[max_name_len]u8`。
+3. **Zig 的几何/粒度/缓存尺寸是编译期常量**，没有"通用布局 + 运行时分支"的代码副本，
+   也去掉了 blob 包装与多套状态读写路径；C 的通用实现必须为所有写粒度保留分支。
+4. **峰值出现在 GC**：不触发 GC 的负载下差别会缩小，甚至反过来——因为 Zig 的
+   `set`/`get` 单帧更大（144/128 B vs C 的 40/120 B），上表的 per-phase 数据已经显示了
+   这一点。所以"Zig 栈更小"结论的正确表述是：**Zig 的 GC 路径更平坦**，而不是每个
+   函数都更省栈。
+
+复现：
+
+```powershell
+python tools\stack_frames.py --compile-c                     # 用固件同款 flags 编译 C 对象
+python tools\stack_frames.py --object build/fw/zig_plain.o --grep kvdb
+```
+
+（`zig_plain.o` 由 `firmware\zig\build.ps1` 生成；帧大小由 `llvm-objdump` 的 prologue
+统计：被压栈的 callee-saved 寄存器 ×4 加立即数 `sub sp`。）
+
 ## 4. 结论与说明
 
 | 维度 | 结果 |
