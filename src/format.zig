@@ -250,10 +250,6 @@ pub fn KvLayout(comptime g: usize, comptime wide_value: bool) type {
             return valueOff(name_len) + alignUp(g, value_len);
         }
 
-        /// Hard limit for a single value so that one record always fits a sector.
-        pub fn maxValueLen(sector_size: u32) usize {
-            return @as(usize, sector_size) - data_off - fixed_len - 1;
-        }
     };
 }
 
@@ -295,10 +291,7 @@ pub fn TsLayout(comptime g: usize, comptime time_bytes: usize) type {
         pub const off_off = len_off + half_slot;
         pub const index_len = off_off + half_slot;
 
-        /// Total on-flash footprint of one log entry (index + padded payload).
-        pub inline fn entryLen(payload_len: usize) usize {
-            return index_len + alignUp(g, payload_len);
-        }
+
     };
 }
 

@@ -305,7 +305,18 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
                     if (self.pos == 0) self.pos = data_off;
                     while (self.pos + name_off <= limit) {
                         const h = try db.readRecordHeader(base + self.pos);
-                        if (h.blank or !h.sane) {
+                        if (h.blank) {
+                            self.pos = limit;
+                            break;
+                        }
+                        if (!h.sane) {
+                            // A torn/foreign header can sit between records; the
+                            // mount scan already resynced past it, so readers must
+                            // do the same instead of ending the sector early.
+                            if (try db.resync(base, self.pos + gu)) |next_pos| {
+                                self.pos = next_pos;
+                                continue;
+                            }
                             self.pos = limit;
                             break;
                         }
@@ -464,8 +475,8 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
                 }
                 if (!h.sane) {
                     flags.dirty = true;
-                    if (try self.resync(base, pos + gu)) |next| {
-                        pos = next;
+                    if (try self.resync(base, pos + gu)) |next_pos| {
+                        pos = next_pos;
                         continue;
                     }
                     pos = try self.findFreeOffset(base, pos + gu);
@@ -716,7 +727,16 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
             var pos: u32 = data_off;
             while (pos + name_off <= cfg.sector_size) {
                 const h = try self.readRecordHeader(base + pos);
-                if (h.blank or !h.sane) break;
+                if (h.blank) break;
+                if (!h.sane) {
+                    // Skip the damaged region; records after it are still live
+                    // and must be moved before this sector is erased.
+                    if (try self.resync(base, pos + gu)) |next_pos| {
+                        pos = next_pos;
+                        continue;
+                    }
+                    break;
+                }
                 if (h.committed and !h.pending and !h.deleted) {
                     try self.moveRecord(base + pos, h.len, false);
                 }
@@ -739,7 +759,14 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
                 var pos: u32 = data_off;
                 while (pos + name_off <= cfg.sector_size) {
                     const h = try self.readRecordHeader(base + pos);
-                    if (h.blank or !h.sane) break;
+                    if (h.blank) break;
+                    if (!h.sane) {
+                        if (try self.resync(base, pos + gu)) |next_pos| {
+                            pos = next_pos;
+                            continue;
+                        }
+                        break;
+                    }
                     if (h.committed and h.pending and !h.deleted) {
                         var name_buf: [cfg.max_name_len]u8 = undefined;
                         try self.dev.read(base + pos + name_off, name_buf[0..h.name_len]);
@@ -791,7 +818,14 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
                 var pos: u32 = data_off;
                 while (pos + name_off <= limit) {
                     const rh = try self.readRecordHeader(base + pos);
-                    if (rh.blank or !rh.sane) break;
+                    if (rh.blank) break;
+                    if (!rh.sane) {
+                        if (try self.resync(base, pos + gu)) |next_pos| {
+                            pos = next_pos;
+                            continue;
+                        }
+                        break;
+                    }
                     const addr = base + pos;
                     pos += rh.len;
                     if (!rh.committed) continue;
@@ -1206,4 +1240,45 @@ test "kvdb max value length is exact for every key length" {
     try std.testing.expectError(error.SavedFull, db.set(key_buf[0..], value[0 .. TestDb.max_value_len + 1]));
     try std.testing.expectEqual(@as(u64, 0), db.dev.flash.stats.writes);
     try std.testing.expectEqual(@as(u64, 0), db.dev.flash.stats.erases);
+}
+test "kvdb readers and GC resync over a corrupted record header" {
+    var mem: [16 * 1024]u8 = undefined;
+    var db: TestDb = undefined;
+    try db.mount(freshFlash(&mem));
+    try db.set("aa", "1111");
+    try db.set("bb", "2222");
+    try db.set("cc", "3333");
+
+    // Clear the middle record's name_len byte (3 status granules precede it at
+    // 1-byte granularity), which makes its header unparsable.
+    var addrs: [3]u32 = undefined;
+    var n: usize = 0;
+    var it = db.iterator();
+    while (try it.next()) |e| : (n += 1) addrs[n] = e.addr;
+    try std.testing.expectEqual(@as(usize, 3), n);
+    try db.dev.writeAligned(addrs[1] + 3, &[_]u8{0});
+
+    // Remount: the scan resyncs past the damaged header.
+    var db2: TestDb = undefined;
+    try db2.mount(TestFlash.init(&mem));
+    var buf: [8]u8 = undefined;
+    try std.testing.expectEqual(@as(?u32, 4), try db2.get("aa", &buf));
+    try std.testing.expectEqual(@as(?u32, null), try db2.get("bb", &buf));
+    try std.testing.expectEqual(@as(?u32, 4), try db2.get("cc", &buf));
+    try std.testing.expectEqual(@as(u32, 2), try db2.count());
+    try db2.check();
+
+    // GC must resync as well: the churn forces this sector to be collected and
+    // the records behind the damaged header have to survive the move.
+    var value: [48]u8 = undefined;
+    for (0..400) |i| {
+        for (&value, 0..) |*b, j| b.* = @truncate(i *% 17 +% j);
+        try db2.set("churn", &value);
+    }
+    try db2.check();
+    var db3: TestDb = undefined;
+    try db3.mount(TestFlash.init(&mem));
+    try std.testing.expectEqual(@as(?u32, 4), try db3.get("aa", &buf));
+    try std.testing.expectEqual(@as(?u32, 4), try db3.get("cc", &buf));
+    try std.testing.expectEqual(@as(u64, 0), db3.dev.flash.stats.set_bit_attempts);
 }

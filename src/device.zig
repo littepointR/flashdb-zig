@@ -38,9 +38,6 @@ pub fn Device(comptime F: type, comptime sector_size: u32, comptime sector_count
             return @as(u32, index) * sector_size;
         }
 
-        pub inline fn sectorIndex(addr: u32) u16 {
-            return @intCast(addr / sector_size);
-        }
 
         pub fn read(self: *Self, addr: u32, buf: []u8) Error!void {
             if (@as(u64, addr) + buf.len > total_size) return error.OutOfBounds;

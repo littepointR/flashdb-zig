@@ -35,11 +35,6 @@ pub const KvdbConfig = @import("kvdb.zig").Config;
 pub const Tsdb = @import("tsdb.zig").Tsdb;
 pub const TsdbConfig = @import("tsdb.zig").Config;
 
-/// Write granularity of a flash driver in bits, for tables and docs.
-pub fn writeGranBits(comptime F: type) u16 {
-    return F.write_gran_bits;
-}
-
 test {
     // Pull in the unit tests of every module.
     _ = format;
