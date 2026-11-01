@@ -129,7 +129,8 @@ python tools\fetch_reference.py  # 拉取 FlashDB 2.2.99（固定 commit）到 r
 `0.18.0-dev.753+1420479be`）。Linux/macOS 下同一路径为 `.tools/zig/zig`。
 
 ```powershell
-.tools\zig\zig.exe build test          # 单元测试 + 集成测试 + 模型对拍（49/49）
+.tools\zig\zig.exe build test          # 单元测试 + 集成测试 + 模型对拍（54/54）
+python tools\coverage.py                 # 函数覆盖率（当前 99.4%，公开 API 100%）
 .tools\zig\zig.exe build               # 库 + 示例 + 宿主基准程序
 .tools\zig\zig.exe build bench         # 直接跑宿主基准 -> zig-out\bin\flashdb-bench.exe
 ./zig-out/bin/flashdb-bench --mode check --wg 8   # 基准自检（8 bit 写粒度）

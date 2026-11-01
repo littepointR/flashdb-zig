@@ -4,19 +4,21 @@
 **单元 → 随机模型对拍 → C↔Zig 行为差分 → 真实测量（宿主基准 + Cortex-M3 固件）**。
 掉电一致性在每一层都单独扫过。
 
-当前状态：`zig build test` **49/49 全绿**（41 个库内单元测试 + 8 个集成/模型测试），
+当前状态：`zig build test` **54/54 全绿**（42 个库内单元测试 + 12 个集成/模型测试），
+函数覆盖率 **99.4%**（158/159，公开 API 52/52 = 100%，见 §7），
 `scripts/diff.ps1` **KV + TS 双向对拍 PASS**，C 与 Zig 固件校验和逐字节一致。
 
 ## 1. 单元测试（`src/**` 内，`zig build test`）
 
 | 模块 | 数量 | 覆盖内容 |
 |---|---:|---|
-| `format.zig` | 7 | 扇区头编解码往返、错误 kind/粒度/CRC 拒绝；KV/TS 布局在 1/4/8/16/32 字节粒度下全部对齐、三段写区间恰好铺满记录；序号回绕比较；CRC16 半字节表与按位定义逐值一致 |
+| `format.zig` | 5 | 扇区头编解码往返、错误 kind/粒度/CRC 拒绝；KV/TS 布局在 1/4/8/16/32 字节粒度下全部对齐、三段写区间恰好铺满记录；序号回绕比较；CRC16 半字节表与按位定义逐值一致 |
 | `crc.zig` | 2 | CRC32 标准校验值（`"123456789"` → `0xCBF43926`）、流式累加等价、FNV-1a 已知向量、雪崩混合稳定性 |
-| `sim.zig` | 3 | NOR 语义（写只能清位、越界/未对齐拒绝、擦除填充 0xFF）、故障注入只让写/擦失败且不改变介质、读永远成功 |
+| `sim.zig` | 2 | NOR 语义（写只能清位、越界/未对齐拒绝、擦除填充 0xFF）、故障注入只让写/擦失败且不改变介质、读永远成功 |
 | `device.zig` | 1 | 边界检查、写粒度对齐、`writePadded` 尾部 0xFF 填充、扇区头 round-trip、状态粒度读取 |
-| `kvdb.zig` | 18 | CRUD + 重挂载持久化、短缓冲返回总长、迭代与计数、`autoUpdate`、GC churn 下全部值可回读、`check()`；**逐次写/擦掉电注入**（set/delete 的每一次 mutation）；32 bit 写粒度完整 churn；`maxValueLenFor` 对每种键长精确（+1 字节即 `SavedFull` 且不触碰 Flash） |
-| `tsdb.zig` | 20 | append/正反向/按时间迭代与暴力扫描一致、queryCount、满库与 `maxEntryCount`、rollover 窗口、64 位时间戳、多写粒度、重挂载、索引 commit/offset 损坏恢复、end-info 重建、多次 USING 判定为损坏、clean、逐次 append/换扇区/rollover 掉电、超范围查询零读返回 |
+| `flashdb.zig` | 1 | 入口测试块：把各模块单元测试纳入同一次运行 |
+| `kvdb.zig` | 9 | CRUD + 重挂载持久化、短缓冲返回总长、迭代与计数、`autoUpdate`、GC churn 下全部值可回读、`check()`；**逐次写/擦掉电注入**（set/delete 的每一次 mutation）；32 bit 写粒度完整 churn；`maxValueLenFor` 对每种键长精确（+1 字节即 `SavedFull` 且不触碰 Flash）；**记录头损坏后的扫描/读取/GC 重同步**（损坏中间记录后仍能读到其后的键，GC 搬移不丢数据） |
+| `tsdb.zig` | 22 | append/正反向/按时间迭代与暴力扫描一致、queryCount、满库与 `maxEntryCount`、rollover 窗口、64 位时间戳、多写粒度、重挂载、索引 commit/offset 损坏恢复、end-info 重建、多次 USING 判定为损坏、clean、逐次 append/换扇区/rollover 掉电、超范围查询零读返回 |
 
 ## 2. 随机模型对拍（`tests/kv_model.zig`）
 
@@ -36,7 +38,7 @@
 * 运行时间约 0.5 s（提交在 60 s 预算内）。
 
 ```powershell
-.tools\zig\zig.exe build test                 # 49/49
+.tools\zig\zig.exe build test                 # 54/54
 # 单独运行模型套件（模块 import 需要显式模块表）
 .tools\zig\zig.exe test --dep flashdb -Mroot=tests\kv_model.zig -Mflashdb=src\flashdb.zig
 ```
@@ -95,7 +97,39 @@ python tools\compare_bench.py bench\results\c_wg8_host.json bench\results\zig_wg
 .\firmware\zig\build.ps1        # Zig: bench\results\zig_firmware.json
 ```
 
-## 6. 一键验收
+## 6. 覆盖率
+
+Zig 0.18 的工具链没有暴露 LLVM 的源码级覆盖率插桩（CLI 无 `-fprofile-instr-generate` /
+`-fcoverage-mapping`，`lib/compiler_rt` 也不带 profiling runtime），因此**行覆盖率无法用官方
+工具链测量**。项目改为用 `tools/coverage.py` 测量可复现的**函数覆盖率**：把 `src/**` 复制到
+`build/coverage/` 下，在每个函数体插入一次性计数器（`test` 块与测试辅助函数不计数），
+用同一套 54 个测试（单元 + 集成 + 随机模型）跑一遍，统计命中的函数比例。
+
+当前实测（`python tools/coverage.py`，JSON 报告写入 `build/coverage/report.json`）：
+
+| 文件 | 函数数 | 已覆盖 | 覆盖率 |
+|---|---:|---:|---:|
+| `src/crc.zig` | 4 | 4 | 100% |
+| `src/device.zig` | 10 | 10 | 100% |
+| `src/flash.zig` | 5 | 5 | 100% |
+| `src/format.zig` | 20 | 19 | 95.0% |
+| `src/kvdb.zig` | 49 | 49 | 100% |
+| `src/sim.zig` | 12 | 12 | 100% |
+| `src/tsdb.zig` | 59 | 59 | 100% |
+| **合计** | **159** | **158** | **99.4%** |
+| 公开 API 函数 | 52 | 52 | **100%** |
+
+唯一未命中项是 `format.comptimePow2`——它只在 `comptime` 上下文执行编译期对齐断言，运行期
+不可达，因此必然为 0；type 工厂（`Kvdb(...) type`、`Partition(...) type` 等纯 comptime 函数）
+不计入分母。CI 以 `--min-functions 99` 运行该脚本防止覆盖率回退。
+
+```powershell
+python tools\coverage.py                    # 报告 + build/coverage/report.json
+python tools\coverage.py --min-functions 99 # 低于阈值时非零退出（CI 使用）
+```
+
+## 7. 一键验收
+
 
 ```powershell
 pwsh -NoProfile -File scripts\accept_all.ps1
