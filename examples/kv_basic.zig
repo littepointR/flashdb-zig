@@ -49,6 +49,16 @@ pub fn main(init: std.process.Init) !void {
     var db: Kv = undefined;
     try db.mount(flash);
 
+    // Defaults: `applyDefaults` creates keys that are missing and leaves user
+    // values alone, so it is safe to call on every boot. `restoreDefaults`
+    // force-writes the factory values, and `autoUpdate(version, defaults)` runs
+    // the migration only when the stored `__ver_num__` changes.
+    const defaults = [_]Kv.DefaultKv{
+        .{ .key = "boot_count", .value = &[_]u8{ 0, 0, 0, 0 } },
+        .{ .key = "wifi_ssid", .value = "zig-flashdb" },
+    };
+    _ = try db.applyDefaults(&defaults);
+
     try db.set("boot_count", &[_]u8{ 7, 0, 0, 0 });
     try db.set("wifi_ssid", "zig-flashdb");
 

@@ -176,7 +176,7 @@ python tools\compare_bench.py bench\results\c_wg8_host.json bench\results\zig_wg
 1. **盘面格式不同**（见上），迁移需重新初始化。
 2. `Kvdb.get` 返回值的**总长度**（复制长度 = `min(buf.len, len)`）；C 的 blob API 返回实际复制长度。
 3. `delete` 返回 `bool`（键是否存在），不再用 `FDB_KV_NAME_ERR` 表达"不存在"。
-4. `Tsdb.setStatus` 只允许向前迁移（写新槽位）；向后迁移为 no-op（C 会重复编程同一粒度，在写一次器件上不安全）。
+4. `Tsdb.setStatus` 只允许向前迁移（写新槽位）；向后迁移返回 `error.StatusNotAdvancing`（C 会重复编程同一粒度，在写一次器件上既无效也不安全）。
 5. 未移植文件模式（`FDB_USING_FILE_*`）；宿主测试用 `flashdb.sim.RamFlash`。
 6. 不支持大端。
 7. `FDB_KV_AUTO_UPDATE` 等价为显式 `Kvdb.autoUpdate(version, defaults)`；仅补缺失键。`fdb_kv_set_default` 等价为 `Kvdb.restoreDefaults(defaults)`，只补缺失键的版本是 `Kvdb.applyDefaults(defaults)`。

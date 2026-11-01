@@ -12,7 +12,7 @@
 
 | 上游 FlashDB | 本库 | 说明 |
 |---|---|---|
-| `fdb_kvdb_init(db, name, path, default_kv, user_data)` | `Kvdb(...).mount(f)`，随后 `applyDefaults(defaults)` 或 `autoUpdate(version, defaults)` | 上游在分区未格式化时写入默认值；本库把"默认值"做成显式调用，`applyDefaults` 可重复调用且只补缺失键 |
+| `fdb_kvdb_init(db, name, path, default_kv, user_data)` | `Kvdb(...).mount(f)`，随后 `applyDefaults(defaults)` 或 `autoUpdate(version, defaults)` | 上游在**所有扇区头都无效**（全新分区或整体损坏，见 `_fdb_kv_load`）时用 `fdb_kv_set_default` 写入默认值；本库把默认值做成显式调用，`applyDefaults` 可重复调用且只补缺失键 |
 | `fdb_tsdb_init(db, name, path, get_time, max_len, user_data)` | `Tsdb(...).mount(f)`；时间由调用方在 `append(time, data)` 传入 | 无内部时钟回调（no_std 更直接），`max_len` 是编译期配置 |
 | `fdb_kvdb_deinit` / `fdb_tsdb_deinit` | 无对应函数 | 本库无堆、无锁、无全局状态，数据库生命周期结束即释放；无需收尾调用 |
 | `fdb_kvdb_check` | `check()` | 遍历并校验每条记录的 CRC32 |
@@ -45,7 +45,7 @@
 | 上游 | 本库 | 说明 |
 |---|---|---|
 | `fdb_kv_set`（字符串） | `set(key, value: []const u8)` | 不要求 NUL 结尾 |
-| `fdb_kv_get`（返回内部缓冲的 NUL 结尾字符串） | `get(key, buf) ?u32` | 返回长度并拷入调用方缓冲，不写 NUL（需要字符串时用 `buf[0..n]`） |
+| `fdb_kv_get`（内部静态缓冲的 NUL 结尾字符串，仅当值为字符串且 ≤ `FDB_STR_KV_VALUE_MAX_SIZE`，默认 32 字节，否则返回 NULL） | `get(key, buf) ?u32` | 返回长度并拷入调用方缓冲（任意二进制、可重入），不写 NUL；需要字符串时用 `buf[0..n]` |
 | `fdb_kv_set_blob` / `fdb_kv_get_blob` | 同上 | 本库 value 天然支持任意二进制 |
 | `fdb_kv_del` | `delete(key) !bool` | 返回是否真的删除 |
 | `fdb_kv_set_default` | `restoreDefaults(defaults) !u32` | 强制把每个默认键写回默认值（工厂复位），返回写入数量 |
@@ -65,11 +65,11 @@
 | `fdb_tsl_iter` | `iterator()` | 正序 |
 | `fdb_tsl_iter_reverse` | `iteratorReverse()` | 逆序 |
 | `fdb_tsl_iter_by_time(from, to)` | `iteratorByTime(from, to)` | 闭区间 |
-| `fdb_tsl_query_count(from, to, status)` | `queryCount(from, to, status)` | |
+| `fdb_tsl_query_count(from, to, status)` | `queryCount(from, to, status)` | 额外支持 `from > to`（反向区间），上游要求 `from <= to` |
 | `fdb_tsl_max_blob_count` | `maxEntryCount()` | 按 `max_len` 估算的单库容量 |
 | `fdb_tsl_set_status` | `setStatus(entry, status)` | **更严格**：只允许状态前进，回退返回 `error.StatusNotAdvancing`（NOR 单次写粒度也无法真正回退） |
 | `fdb_tsl_clean` | `clean()` | 擦除整个分区并重建 |
-| `fdb_tsl_to_blob` + `fdb_blob_read` | `Entry.log_addr`/`len` + `readPayload(buf, entry)` | |
+| `fdb_tsl_to_blob` + `fdb_blob_read` | `Entry.log_addr`/`len` + `readPayload(buf, entry)` | 复制 `min(buf.len, len)` 字节；TS 条目在上游与这里都没有 CRC |
 | `fdb_tsl_t` 的 `log_len`/`addr.index`/`addr.log` | `Entry.len`/`index_addr`/`log_addr` | 字段一一对应 |
 
 ## 5. 有意不同的地方
