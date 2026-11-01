@@ -5,7 +5,7 @@
     "download_index": "https://ziglang.org/download/index.json",
     "build_archive": "https://ziglang.org/builds/zig-{platform}-{version}.{ext}",
     "pinned_at": "2026-11-01",
-    "sha256_x86_64_windows": "39b40aac235cc11f2f0af3608677e46866451b4e1fe77002374ecd7a22a5a79",
+    "sha256_x86_64_windows": "39b40aac235cc11f2f0af3608677e46866451b4e1fe77002374ec9d7a22a5a79",
     "installed_to": ".tools/zig/",
     "installer": "tools/bootstrap.py"
   },
