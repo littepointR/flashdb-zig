@@ -136,8 +136,9 @@ python tools\fetch_reference.py  # 拉取 FlashDB 2.2.99（固定 commit）到 r
 ./zig-out/bin/flashdb-bench --mode check --wg 1   # 基准自检（1 bit 写粒度）
 ```
 
-对照 C 原版的完整验收流程（需要 `reference/FlashDB`、QEMU 与 PowerShell 7，见
-[`docs/TESTING.md`](docs/TESTING.md)）：
+对照 C 原版的完整验收流程面向 **Windows + PowerShell 7**（脚本还会用到 QEMU 与
+LLVM/`llvm-size`，见 [`docs/TESTING.md`](docs/TESTING.md)）；库本身、测试、Zig 基准与示例
+在 Linux/macOS 同样可用（CI 在 Ubuntu 与 Windows 上构建并测试）：
 
 ```powershell
 pwsh -NoProfile -File scripts\accept_all.ps1   # 一键：测试 + 宿主基准对比 + 行为差分 + 两侧固件

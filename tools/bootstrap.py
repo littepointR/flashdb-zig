@@ -127,7 +127,10 @@ def extract(archive: str, dest: str) -> None:
                 if not rel:
                     continue
                 member.name = rel
-                tf.extract(member, dest)
+                try:
+                    tf.extract(member, dest, filter="data")
+                except TypeError:  # Python < 3.12 has no extraction filters
+                    tf.extract(member, dest)
     if os.name != "nt":
         os.chmod(os.path.join(dest, "zig"), 0o755)
 

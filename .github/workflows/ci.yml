@@ -40,17 +40,17 @@ jobs:
       - name: Build the library, examples and host benchmark
         run: zig build --summary all
 
-      - name: Host benchmark self-checks (both write granularities)
+      - name: Host benchmark self-checks (Linux)
+        if: runner.os == 'Linux'
         run: |
-          zig-out/bin/flashdb-bench --mode check --wg 8
-          zig-out/bin/flashdb-bench --mode check --wg 1
-        shell: bash
+          ./zig-out/bin/flashdb-bench --mode check --wg 8
+          ./zig-out/bin/flashdb-bench --mode check --wg 1
+
+      - name: Host benchmark self-checks (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          .\zig-out\bin\flashdb-bench.exe --mode check --wg 8
+          .\zig-out\bin\flashdb-bench.exe --mode check --wg 1
 
       - name: Fetch the upstream C reference sources
         run: python tools/fetch_reference.py
-
-      - name: C reference harness self-checks (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          chmod +x scripts/*.ps1 2>/dev/null || true
-          pwsh -NoProfile -File scripts/check_bench_c.ps1
