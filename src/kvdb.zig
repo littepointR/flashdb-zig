@@ -70,6 +70,7 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
             SavedFull,
             Corrupted,
             InitFailed,
+            BufferTooSmall,
         };
 
         /// Largest value length that always fits, i.e. with a key of
@@ -227,6 +228,18 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
         }
 
         /// True when `key` currently has a value.
+        /// Read a value into `buf` and append a NUL terminator, returning the
+        /// string slice (upstream `fdb_kv_get` convenience). `buf` needs one byte
+        /// more than the value. Returns null when the key is absent and
+        /// `error.BufferTooSmall` when the value does not fit.
+        pub fn getString(self: *Self, key: []const u8, buf: []u8) Error!?[]const u8 {
+            if (buf.len == 0) return error.BufferTooSmall;
+            const total = (try self.get(key, buf[0 .. buf.len - 1])) orelse return null;
+            if (total > buf.len - 1) return error.BufferTooSmall;
+            buf[total] = 0;
+            return buf[0..total];
+        }
+
         pub fn contains(self: *Self, key: []const u8) Error!bool {
             var rec: Record = undefined;
             return self.findVisible(key, &rec);
@@ -324,6 +337,13 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
             db: *Self,
             sector_pos: u16 = 0,
             pos: u32 = 0,
+            /// Live records produced so far (upstream `iterated_cnt`).
+            iterated_count: u32 = 0,
+            /// Sum of the value lengths produced so far (`iterated_value_bytes`).
+            iterated_value_bytes: u64 = 0,
+            /// Sum of the on-flash record sizes produced so far
+            /// (`iterated_obj_bytes`).
+            iterated_obj_bytes: u32 = 0,
             name_buf: [cfg.max_name_len]u8 = undefined,
 
             pub fn next(self: *Iterator) Error!?Entry {
@@ -354,6 +374,9 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
                         self.pos += h.len;
                         if (h.committed and !h.pending and !h.deleted) {
                             try db.dev.read(addr + name_off, self.name_buf[0..h.name_len]);
+                            self.iterated_count += 1;
+                            self.iterated_value_bytes += h.value_len;
+                            self.iterated_obj_bytes += h.len;
                             return .{
                                 .addr = addr,
                                 .name_len = h.name_len,
@@ -1368,4 +1391,42 @@ test "kvdb defaults: apply missing and restore all" {
     n = (try db2.get("name", &buf)).?;
     try std.testing.expectEqualSlices(u8, "zig", buf[0..n]);
     try std.testing.expectEqual(@as(u64, 0), db2.dev.flash.stats.set_bit_attempts);
+}
+
+test "kvdb getString and iterator statistics" {
+    var mem: [16 * 1024]u8 = undefined;
+    var db: TestDb = undefined;
+    try db.mount(freshFlash(&mem));
+    try db.set("name", "flashdb");
+    try db.set("empty", "");
+
+    var buf: [16]u8 = undefined;
+    const str = (try db.getString("name", &buf)).?;
+    try std.testing.expectEqualSlices(u8, "flashdb", str);
+    try std.testing.expectEqual(@as(u8, 0), buf[str.len]);
+    try std.testing.expect((try db.getString("missing", &buf)) == null);
+
+    // A too-small buffer is reported instead of silently truncating.
+    var tiny: [4]u8 = undefined;
+    try std.testing.expectError(error.BufferTooSmall, db.getString("name", &tiny));
+    var zero: [0]u8 = .{};
+    try std.testing.expectError(error.BufferTooSmall, db.getString("name", &zero));
+
+    // An empty value only needs the terminator.
+    var one: [1]u8 = undefined;
+    const empty = (try db.getString("empty", &one)).?;
+    try std.testing.expectEqual(@as(usize, 0), empty.len);
+
+    // Iterator counters mirror upstream's iterated_* fields.
+    var it = db.iterator();
+    var seen: u32 = 0;
+    var value_bytes: u64 = 0;
+    while (try it.next()) |entry| {
+        seen += 1;
+        value_bytes += entry.value_len;
+    }
+    try std.testing.expectEqual(seen, it.iterated_count);
+    try std.testing.expectEqual(value_bytes, it.iterated_value_bytes);
+    try std.testing.expect(@as(u64, it.iterated_obj_bytes) >= it.iterated_value_bytes);
+    try std.testing.expectEqual(@as(u32, 2), it.iterated_count);
 }
