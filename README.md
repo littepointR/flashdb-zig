@@ -111,6 +111,25 @@ const kv_part: Part = .{ .dev = &nor_flash, .offset = 0, .len = 16 * 1024 };
 const ts_part: Part = .{ .dev = &nor_flash, .offset = 16 * 1024, .len = 16 * 1024 };
 ```
 
+## 宿主文件模式（可选）
+
+[`host/file_flash.zig`](host/file_flash.zig) 把上面的驱动协议映射到普通文件（等价上游
+`FDB_USING_FILE_POSIX_MODE`）：库本体仍是 `no_std`，它作为独立模块 `flashdb_host` 提供，
+方便在 PC 上跑完整数据库并让数据跨进程保留。
+
+```zig
+const host = @import("flashdb_host");
+const FileFlash = host.FileFlash(.{ .file_size = 64 * 1024, .block_size = 4096 });
+
+var fl = try FileFlash.open(io, std.Io.Dir.cwd(), "db.bin", .open_or_create);
+defer fl.close();
+var db: flashdb.Kvdb(FileFlash, .{ .sector_size = 4096, .sector_count = 4 }) = undefined;
+try db.mount(fl);
+```
+
+运行 `zig-out\bin\example-file_backed.exe` 两次可以看到 `boot_count` 递增（镜像在
+`zig-out/file_flash_db.bin`）；`host/file_flash_test.zig` 随 `zig build test` 一起运行。
+
 ## 获取工具链与上游参考
 
 仓库本身不包含编译器与上游 C 源码（两者都可复现拉取，且不参与库的构建）：
