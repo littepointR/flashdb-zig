@@ -59,7 +59,7 @@ pub fn build(b: *std.Build) void {
 
     // ---- examples ---------------------------------------------------------
     const example_step = b.step("examples", "Build the examples");
-    const example_names = [_][]const u8{ "kv_basic", "ts_basic" };
+    const example_names = [_][]const u8{ "kv_basic", "ts_basic", "lock_and_dump" };
     inline for (example_names) |name| {
         const ex = b.addExecutable(.{
             .name = "example-" ++ name,

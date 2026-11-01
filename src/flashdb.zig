@@ -35,12 +35,19 @@ pub const KvdbConfig = @import("kvdb.zig").Config;
 pub const Tsdb = @import("tsdb.zig").Tsdb;
 pub const TsdbConfig = @import("tsdb.zig").Config;
 
+/// Optional thread/ISR lock hooks (`Config.lock`).
+pub const Lock = @import("lock.zig").Lock;
+/// Allocation-free output sink used by the `dump` helpers.
+pub const Sink = @import("sink.zig").Sink;
+
 test {
     // Pull in the unit tests of every module.
     _ = format;
     _ = crc;
     _ = device;
     _ = sim;
+    _ = @import("lock.zig");
+    _ = @import("sink.zig");
     _ = @import("kvdb.zig");
     _ = @import("tsdb.zig");
 }

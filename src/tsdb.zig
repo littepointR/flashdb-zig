@@ -25,6 +25,8 @@
 
 const format = @import("format.zig");
 const device = @import("device.zig");
+const lock_mod = @import("lock.zig");
+const sink_mod = @import("sink.zig");
 
 /// TSDB geometry and behaviour, all compile-time.
 pub const Config = struct {
@@ -178,6 +180,8 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
         pristine: u32 = 0,
         /// Sectors with a valid TSDB header.
         known_mask: u32 = 0,
+        /// Optional runtime lock installed with `setLock`.
+        lock: ?lock_mod.Lock = null,
         /// Sector sequence number per sector index (valid when `known_mask`).
         seqs: [SECTOR_COUNT]u16 = @splat(0),
         /// Sector indices ascending by sequence number (valid prefix).
@@ -199,11 +203,35 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
         /// flash, so the database has to be remounted before further appends.
         damaged: bool = false,
 
+        const Sink = sink_mod.Sink;
+
+        /// Take/release the optional runtime lock (see `setLock`).
+        inline fn lockAcquire(self: *const Self) void {
+            if (self.lock) |l| l.acquire(l.ctx);
+        }
+
+        inline fn lockRelease(self: *const Self) void {
+            if (self.lock) |l| l.release(l.ctx);
+        }
+
         // ---- public API ---------------------------------------------------
+
+        /// Install (or clear, with null) the lock hooks. `mount` itself is not
+        /// locked; call this right after it, before the database is shared.
+        pub fn setLock(self: *Self, lock: ?lock_mod.Lock) void {
+            self.lock = lock;
+        }
+
+        /// Currently installed lock hooks (null when none).
+        pub fn getLock(self: *const Self) ?lock_mod.Lock {
+            return self.lock;
+        }
 
         /// Mount (or initialise) the database on `f`. The driver value is
         /// copied in, so `*Self` can live in `.bss` without stack copies.
         pub fn mount(self: *Self, f: F) Error!void {
+            // No lock here: the instance (and therefore `self.lock`) is not
+            // initialised yet. Install hooks with `setLock` right after mount.
             self.* = .{ .dev = D.init(f) };
             try self.load();
         }
@@ -212,6 +240,12 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
         /// stored timestamp (like upstream FlashDB) and `data.len` must not
         /// exceed `max_len`.
         pub fn append(self: *Self, time: Time, data: []const u8) Error!void {
+            self.lockAcquire();
+            defer self.lockRelease();
+            return self.appendUnlocked(time, data);
+        }
+
+        fn appendUnlocked(self: *Self, time: Time, data: []const u8) Error!void {
             if (data.len > cfg.max_len) return error.ValueTooLarge;
             if (time <= self.last_time) return error.TimeNotIncreasing;
             if (self.damaged) return error.Corrupted;
@@ -226,32 +260,44 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
 
         /// Alias of `append` used by the benchmark protocol.
         pub fn insert(self: *Self, time: Time, data: []const u8) Error!void {
-            return self.append(time, data);
+            self.lockAcquire();
+            defer self.lockRelease();
+            return self.appendUnlocked(time, data);
         }
 
         /// Timestamp of the newest committed entry (0 on a fresh database).
         pub fn lastTime(self: *const Self) Time {
+            self.lockAcquire();
+            defer self.lockRelease();
             return self.last_time;
         }
 
         /// Enable/disable recycling the oldest sector when the database is
         /// full (enabled by default, like upstream).
         pub fn setRollover(self: *Self, on: bool) void {
+            self.lockAcquire();
+            defer self.lockRelease();
             self.rollover = on;
         }
 
         pub fn getRollover(self: *const Self) bool {
+            self.lockAcquire();
+            defer self.lockRelease();
             return self.rollover;
         }
 
         /// Erase the whole database and format sector 0 (destructive).
         pub fn clean(self: *Self) Error!void {
+            self.lockAcquire();
+            defer self.lockRelease();
             try self.formatAll();
         }
 
         /// Number of committed entries (walks the database).
         pub fn count(self: *Self) Error!u32 {
-            var it = self.iterator();
+            self.lockAcquire();
+            defer self.lockRelease();
+            var it = self.iteratorUnlocked();
             var n: u32 = 0;
             while (try it.next() != null) n += 1;
             return n;
@@ -268,6 +314,8 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
         /// the on-flash format: sane sector headers, end fields on closed
         /// sectors, in-range index records and strictly increasing timestamps.
         pub fn check(self: *Self) Error!void {
+            self.lockAcquire();
+            defer self.lockRelease();
             var using_count: u16 = 0;
             var i: u16 = 0;
             while (i < SECTOR_COUNT) : (i += 1) {
@@ -303,7 +351,7 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
             if (using_count > 1) return error.Corrupted;
 
             // Timestamps must increase monotonically over the whole database.
-            var it = self.iterator();
+            var it = self.iteratorUnlocked();
             var prev: Time = 0;
             var have_prev = false;
             while (try it.next()) |e| {
@@ -318,6 +366,8 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
         /// once per entry, so rewriting an already written (or earlier) marker
         /// returns `error.StatusNotAdvancing` instead of re-programming flash.
         pub fn setStatus(self: *Self, entry: Entry, status: StatusEnum) SetStatusError!void {
+            self.lockAcquire();
+            defer self.lockRelease();
             var buf: [4 * g]u8 = undefined;
             try self.dev.read(entry.index_addr, &buf);
             if (!format.granuleIsZero(g, &buf)) return error.StatusNotAdvancing;
@@ -335,7 +385,9 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
         /// Number of entries in `[from, to]` (reversed when `from > to`) whose
         /// status is `status`.
         pub fn queryCount(self: *Self, from: Time, to: Time, status: StatusEnum) Error!u32 {
-            var it = self.iteratorByTime(from, to);
+            self.lockAcquire();
+            defer self.lockRelease();
+            var it = self.iteratorByTimeUnlocked(from, to);
             var n: u32 = 0;
             while (try it.next()) |e| {
                 if (e.status == status) n += 1;
@@ -343,11 +395,86 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
             return n;
         }
 
+        /// Print one line per stored entry through `sink` (there is no upstream
+        /// equivalent; this is a debug helper in the spirit of `fdb_kv_print`).
+        /// Printable ASCII payloads are quoted, other payloads are hex.
+        pub fn dump(self: *Self, sink: Sink) Error!void {
+            self.lockAcquire();
+            defer self.lockRelease();
+            var it = self.iteratorUnlocked();
+            var chunks: [64]u8 = undefined;
+            while (try it.next()) |entry| {
+                sink.write("t=");
+                sink.writeSigned(@intCast(entry.time));
+                sink.write(" status=");
+                sink.write(statusName(entry.status));
+                sink.write(" len=");
+                sink.writeDec(entry.len);
+                sink.write(" value=");
+                self.dumpValue(sink, entry.log_addr, entry.len, &chunks);
+                sink.writeByte('\n');
+            }
+        }
+
+        fn dumpValue(self: *Self, sink: Sink, addr: u32, len: u32, chunks: []u8) void {
+            if (self.valueIsPrintable(addr, len, chunks)) {
+                sink.writeByte('"');
+                var off: u32 = 0;
+                while (off < len) {
+                    const n = chunkLen(chunks.len, len - off);
+                    self.dev.read(addr + off, chunks[0..n]) catch return;
+                    sink.write(chunks[0..n]);
+                    off += n;
+                }
+                sink.writeByte('"');
+            } else {
+                sink.write("0x");
+                var off: u32 = 0;
+                while (off < len) {
+                    const n = chunkLen(chunks.len, len - off);
+                    self.dev.read(addr + off, chunks[0..n]) catch return;
+                    sink.writeHexBytes(chunks[0..n]);
+                    off += n;
+                }
+            }
+        }
+
+        fn valueIsPrintable(self: *Self, addr: u32, len: u32, chunks: []u8) bool {
+            var off: u32 = 0;
+            while (off < len) {
+                const n = chunkLen(chunks.len, len - off);
+                self.dev.read(addr + off, chunks[0..n]) catch return false;
+                if (!sink_mod.isPrintable(chunks[0..n])) return false;
+                off += n;
+            }
+            return true;
+        }
+
+        inline fn chunkLen(chunk_size: usize, remaining: u32) u32 {
+            return @intCast(@min(chunk_size, remaining));
+        }
+
+        fn statusName(status: StatusEnum) []const u8 {
+            return switch (status) {
+                .unused => "unused",
+                .pre_write => "pre_write",
+                .write => "write",
+                .user1 => "user1",
+                .deleted => "deleted",
+                .user2 => "user2",
+            };
+        }
+
         // ---- iterators ----------------------------------------------------
 
-        /// Forward iterator, oldest entry first.
+        /// Forward iterator, oldest entry first. `next`/`readPayload` take the
+        /// configured lock for each call.
         pub fn iterator(self: *Self) Iterator {
             return .{ .db = self };
+        }
+
+        fn iteratorUnlocked(self: *Self) Iterator {
+            return .{ .db = self, .locking = false };
         }
 
         /// Reverse iterator, newest entry first.
@@ -358,6 +485,12 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
         /// Iterate entries with `time` in `[from, to]`; when `from > to` the
         /// iterator runs backwards from `from` to `to` (upstream semantics).
         pub fn iteratorByTime(self: *Self, from: Time, to: Time) Iterator {
+            var it = self.iteratorByTimeUnlocked(from, to);
+            it.locking = true;
+            return it;
+        }
+
+        fn iteratorByTimeUnlocked(self: *Self, from: Time, to: Time) Iterator {
             const reverse = from > to;
             const lo = if (reverse) to else from;
             const hi = if (reverse) from else to;
@@ -373,6 +506,7 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
                 .lo = lo,
                 .hi = hi,
                 .sector_pos = if (reverse) self.order_len else 0,
+                .locking = false,
             };
         }
 
@@ -396,12 +530,18 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
             loaded: bool = false,
             /// Set once the iterator returned its last entry.
             done: bool = false,
+            /// False when the enclosing operation already holds the lock.
+            locking: bool = true,
             /// Only the sector in which a by-time range starts is binary
             /// searched; later sectors start at their first (forward) or last
             /// (reverse) slot and are cut off by the range stop condition.
             seek_start: bool = false,
 
             pub fn next(self: *Iterator) Error!?Entry {
+                if (self.locking) {
+                    self.db.lockAcquire();
+                    defer self.db.lockRelease();
+                }
                 const db = self.db;
                 if (self.done) return null;
                 while (true) {
@@ -447,6 +587,10 @@ pub fn Tsdb(comptime F: type, comptime cfg: Config) type {
             /// Copy `min(buf.len, entry.len)` payload bytes into `buf` and
             /// return the number of bytes copied.
             pub fn readPayload(self: *Iterator, buf: []u8, entry: Entry) Error!u32 {
+                if (self.locking) {
+                    self.db.lockAcquire();
+                    defer self.db.lockRelease();
+                }
                 const n: u32 = @min(@as(u32, @intCast(buf.len)), entry.len);
                 if (n > 0) try self.db.dev.read(entry.log_addr, buf[0..@intCast(n)]);
                 return n;
@@ -2229,4 +2373,114 @@ test "TMP mount bench" {
     t1 = std.Io.Clock.now(.awake, io).nanoseconds;
     std.debug.print("TMP 4x fast.crc16    : {d} ns\n", .{@divTrunc(t1 - t0, @as(i64, N))});
     std.debug.print("TMP sink {d}\n", .{tmp_sink});
+}
+
+/// Counting lock used by the lock-hook test (see the KVDB equivalent).
+const LockProbe = struct {
+    var acquires: u32 = 0;
+    var releases: u32 = 0;
+    var depth: u32 = 0;
+    var max_depth: u32 = 0;
+    var nested: bool = false;
+
+    fn reset() void {
+        acquires = 0;
+        releases = 0;
+        depth = 0;
+        max_depth = 0;
+        nested = false;
+    }
+
+    fn acquire(ctx: ?*anyopaque) void {
+        _ = ctx;
+        if (depth != 0) nested = true;
+        depth += 1;
+        if (depth > max_depth) max_depth = depth;
+        acquires += 1;
+    }
+
+    fn release(ctx: ?*anyopaque) void {
+        _ = ctx;
+        depth -= 1;
+        releases += 1;
+    }
+};
+
+/// Sink that captures dump output in a fixed buffer.
+const Capture = struct {
+    buf: [512]u8 = undefined,
+    len: usize = 0,
+
+    fn write(ctx: ?*anyopaque, bytes: []const u8) void {
+        const self: *Capture = @ptrCast(@alignCast(ctx.?));
+        std.debug.assert(self.len + bytes.len <= self.buf.len);
+        @memcpy(self.buf[self.len..][0..bytes.len], bytes);
+        self.len += bytes.len;
+    }
+
+    fn slice(self: *const Capture) []const u8 {
+        return self.buf[0..self.len];
+    }
+};
+
+test "tsdb lock hooks wrap public operations and never nest" {
+    const Locked = Tsdb(Flash8, .{ .sector_size = 4096, .sector_count = 4, .max_len = 32 });
+    LockProbe.reset();
+
+    var mem: [4 * 4096]u8 = undefined;
+    var db: Locked = undefined;
+    try db.mount(fresh(Flash8, &mem));
+    db.setLock(.{ .acquire = LockProbe.acquire, .release = LockProbe.release });
+    try std.testing.expect(db.getLock() != null);
+
+    try db.append(1, "one");
+    try db.insert(2, "two");
+    _ = db.lastTime();
+    db.setRollover(false);
+    try std.testing.expect(!db.getRollover());
+    db.setRollover(true);
+    _ = try db.count();
+    try db.check();
+    var it = db.iterator();
+    if (try it.next()) |entry| {
+        var buf: [8]u8 = undefined;
+        _ = try it.readPayload(&buf, entry);
+        try db.setStatus(entry, .user1);
+    }
+    _ = try db.queryCount(0, 10, .user1);
+    _ = db.iteratorReverse();
+    var by_time = db.iteratorByTime(0, 10);
+    while (try by_time.next()) |_| {}
+    var cap: Capture = .{};
+    try db.dump(.{ .ctx = &cap, .writeFn = Capture.write });
+    try db.clean();
+
+    try std.testing.expect(LockProbe.acquires > 10);
+    try std.testing.expectEqual(LockProbe.acquires, LockProbe.releases);
+    try std.testing.expect(!LockProbe.nested);
+    try std.testing.expectEqual(@as(u32, 1), LockProbe.max_depth);
+    try std.testing.expectEqual(@as(u32, 0), LockProbe.depth);
+
+    // Clearing the hooks stops the counting.
+    db.setLock(null);
+    try std.testing.expect(db.getLock() == null);
+    const before = LockProbe.acquires;
+    try db.append(3, "three");
+    try std.testing.expectEqual(before, LockProbe.acquires);
+}
+
+test "tsdb dump prints time, status, length and payload" {
+    var mem: [4 * 4096]u8 = undefined;
+    var db: BigDb = undefined;
+    try db.mount(fresh(Flash8, &mem));
+    try db.append(1000, "first");
+    try db.append(1001, &[_]u8{ 0x00, 0xFF });
+
+    var cap: Capture = .{};
+    try db.dump(.{ .ctx = &cap, .writeFn = Capture.write });
+    try std.testing.expectEqualStrings(
+        "t=1000 status=write len=5 value=\"first\"\n" ++
+            "t=1001 status=write len=2 value=0x00ff\n",
+        cap.slice(),
+    );
 }

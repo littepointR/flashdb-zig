@@ -11,6 +11,8 @@ const std = @import("std");
 const format = @import("format.zig");
 const crc = @import("crc.zig");
 const device = @import("device.zig");
+const lock_mod = @import("lock.zig");
+const sink_mod = @import("sink.zig");
 
 pub const Config = struct {
     /// Erase sector size in bytes (power of two, multiple of the driver's erase
@@ -133,20 +135,48 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
         cache: [cfg.cache_entries]CacheEntry = @splat(CacheEntry{}),
         /// Next way to replace per cache set (2 bits each, round-robin).
         cache_rr: u64 = 0,
+        /// Optional runtime lock installed with `setLock`.
+        lock: ?lock_mod.Lock = null,
 
+
+        const Sink = sink_mod.Sink;
+
+        /// Take/release the optional runtime lock (see `setLock`).
+        inline fn lockAcquire(self: *const Self) void {
+            if (self.lock) |l| l.acquire(l.ctx);
+        }
+
+        inline fn lockRelease(self: *const Self) void {
+            if (self.lock) |l| l.release(l.ctx);
+        }
 
         // ---- public API --------------------------------------------------
+
+        /// Install (or clear, with null) the lock hooks. `mount` itself is not
+        /// locked; call this right after it, before the database is shared.
+        pub fn setLock(self: *Self, lock: ?lock_mod.Lock) void {
+            self.lock = lock;
+        }
+
+        /// Currently installed lock hooks (null when none).
+        pub fn getLock(self: *const Self) ?lock_mod.Lock {
+            return self.lock;
+        }
 
         /// Mount (or initialise) the database on `f`. The database takes a copy
         /// of the driver value, so `*Self` can live in `.bss` without copying the
         /// whole database through the stack.
         pub fn mount(self: *Self, f: F) Error!void {
+            // No lock here: the instance (and therefore `self.lock`) is not
+            // initialised yet. Install hooks with `setLock` right after mount.
             self.* = .{ .dev = D.init(f) };
             try self.load();
         }
 
         /// Reformat every sector and reset the database (destructive).
         pub fn formatAll(self: *Self) Error!void {
+            self.lockAcquire();
+            defer self.lockRelease();
             try self.formatBlank();
         }
 
@@ -174,6 +204,12 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
         }
         /// Store `value` under `key`, overwriting any previous value.
         pub fn set(self: *Self, key: []const u8, value: []const u8) Error!void {
+            self.lockAcquire();
+            defer self.lockRelease();
+            return self.setUnlocked(key, value);
+        }
+
+        fn setUnlocked(self: *Self, key: []const u8, value: []const u8) Error!void {
             try self.checkKey(key);
             // Reject impossible records *before* touching the flash: otherwise
             // allocation would keep formatting fresh sectors looking for space
@@ -205,6 +241,8 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
 
         /// Delete `key`. Returns false when the key does not exist.
         pub fn delete(self: *Self, key: []const u8) Error!bool {
+            self.lockAcquire();
+            defer self.lockRelease();
             try self.checkKey(key);
             var old: Record = undefined;
             if (!try self.findVisible(key, &old)) return false;
@@ -220,6 +258,12 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
         /// `buf` and returns the total value length, or null when not found.
         /// The CRC32 of the whole record is verified in the same pass.
         pub fn get(self: *Self, key: []const u8, buf: []u8) Error!?u32 {
+            self.lockAcquire();
+            defer self.lockRelease();
+            return self.getUnlocked(key, buf);
+        }
+
+        fn getUnlocked(self: *Self, key: []const u8, buf: []u8) Error!?u32 {
             try self.checkKey(key);
             var rec: Record = undefined;
             if (!try self.findVisible(key, &rec)) return null;
@@ -227,45 +271,117 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
             return rec.value_len;
         }
 
-        /// True when `key` currently has a value.
         /// Read a value into `buf` and append a NUL terminator, returning the
         /// string slice (upstream `fdb_kv_get` convenience). `buf` needs one byte
         /// more than the value. Returns null when the key is absent and
         /// `error.BufferTooSmall` when the value does not fit.
         pub fn getString(self: *Self, key: []const u8, buf: []u8) Error!?[]const u8 {
+            self.lockAcquire();
+            defer self.lockRelease();
+            return self.getStringUnlocked(key, buf);
+        }
+
+        fn getStringUnlocked(self: *Self, key: []const u8, buf: []u8) Error!?[]const u8 {
             if (buf.len == 0) return error.BufferTooSmall;
-            const total = (try self.get(key, buf[0 .. buf.len - 1])) orelse return null;
+            const total = (try self.getUnlocked(key, buf[0 .. buf.len - 1])) orelse return null;
             if (total > buf.len - 1) return error.BufferTooSmall;
             buf[total] = 0;
             return buf[0..total];
         }
 
+        /// True when `key` currently has a value.
         pub fn contains(self: *Self, key: []const u8) Error!bool {
+            self.lockAcquire();
+            defer self.lockRelease();
             var rec: Record = undefined;
             return self.findVisible(key, &rec);
         }
 
         /// Number of live records (walks the database; O(records)).
         pub fn count(self: *Self) Error!u32 {
-            var it = self.iterator();
+            self.lockAcquire();
+            defer self.lockRelease();
+            var it = self.iteratorUnlocked();
             var n: u32 = 0;
             while (try it.next() != null) n += 1;
             return n;
         }
 
-        /// Iterate over live records in sector sequence order.
+        /// Iterate over live records in sector sequence order. `next` and
+        /// `readValue` take the configured lock for each call.
         pub fn iterator(self: *Self) Iterator {
             return .{ .db = self };
+        }
+
+        /// Same as `iterator`, for callers that already hold the lock.
+        fn iteratorUnlocked(self: *Self) Iterator {
+            return .{ .db = self, .locking = false };
         }
 
         /// Verify the CRC32 of every live record (equivalent to
         /// `fdb_kvdb_check`). Returns error.Corrupted on the first bad record.
         pub fn check(self: *Self) Error!void {
-            var it = self.iterator();
+            self.lockAcquire();
+            defer self.lockRelease();
+            var it = self.iteratorUnlocked();
             var dummy: [0]u8 = .{};
             while (try it.next()) |entry| {
                 _ = try it.readValue(&dummy, entry);
             }
+        }
+
+        /// Print every live key/value pair through `sink` (upstream
+        /// `fdb_kv_print` equivalent). Printable ASCII values are quoted, other
+        /// values are hex. Debug path: the record CRC is not verified.
+        pub fn dump(self: *Self, sink: Sink) Error!void {
+            self.lockAcquire();
+            defer self.lockRelease();
+            var it = self.iteratorUnlocked();
+            var chunks: [cfg.chunk_size]u8 = undefined;
+            while (try it.next()) |entry| {
+                sink.write(entry.name);
+                sink.write(" = ");
+                self.dumpValue(sink, entry.addr + valueOff(entry.name_len), entry.value_len, &chunks);
+                sink.writeByte('\n');
+            }
+        }
+
+        fn dumpValue(self: *Self, sink: Sink, addr: u32, len: u32, chunks: []u8) void {
+            if (self.valueIsPrintable(addr, len, chunks)) {
+                sink.writeByte('"');
+                var off: u32 = 0;
+                while (off < len) {
+                    const n = chunkLen(chunks.len, len - off);
+                    self.dev.read(addr + off, chunks[0..n]) catch return;
+                    sink.write(chunks[0..n]);
+                    off += n;
+                }
+                sink.writeByte('"');
+            } else {
+                sink.write("0x");
+                var off: u32 = 0;
+                while (off < len) {
+                    const n = chunkLen(chunks.len, len - off);
+                    self.dev.read(addr + off, chunks[0..n]) catch return;
+                    sink.writeHexBytes(chunks[0..n]);
+                    off += n;
+                }
+            }
+        }
+
+        fn valueIsPrintable(self: *Self, addr: u32, len: u32, chunks: []u8) bool {
+            var off: u32 = 0;
+            while (off < len) {
+                const n = chunkLen(chunks.len, len - off);
+                self.dev.read(addr + off, chunks[0..n]) catch return false;
+                if (!sink_mod.isPrintable(chunks[0..n])) return false;
+                off += n;
+            }
+            return true;
+        }
+
+        inline fn chunkLen(chunk_size: usize, remaining: u32) u32 {
+            return @intCast(@min(chunk_size, remaining));
         }
 
         /// Default key/value pair used by `autoUpdate`, `applyDefaults` and
@@ -281,11 +397,17 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
         /// `mount` when the schema version did not change but new defaults were
         /// added.
         pub fn applyDefaults(self: *Self, defaults: []const DefaultKv) Error!u32 {
+            self.lockAcquire();
+            defer self.lockRelease();
+            return self.applyDefaultsUnlocked(defaults);
+        }
+
+        fn applyDefaultsUnlocked(self: *Self, defaults: []const DefaultKv) Error!u32 {
             var written: u32 = 0;
             for (defaults) |kv| {
                 var rec: Record = undefined;
                 if (!try self.findVisible(kv.key, &rec)) {
-                    try self.set(kv.key, kv.value);
+                    try self.setUnlocked(kv.key, kv.value);
                     written += 1;
                 }
             }
@@ -296,9 +418,11 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
         /// changes (factory-reset helper). Returns the number of keys written.
         /// Equivalent to upstream's `fdb_kv_set_default`.
         pub fn restoreDefaults(self: *Self, defaults: []const DefaultKv) Error!u32 {
+            self.lockAcquire();
+            defer self.lockRelease();
             var written: u32 = 0;
             for (defaults) |kv| {
-                try self.set(kv.key, kv.value);
+                try self.setUnlocked(kv.key, kv.value);
                 written += 1;
             }
             return written;
@@ -310,15 +434,17 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
         /// stored. Existing values are never overwritten; use
         /// `restoreDefaults` for that.
         pub fn autoUpdate(self: *Self, version: u32, defaults: []const DefaultKv) Error!void {
+            self.lockAcquire();
+            defer self.lockRelease();
             var vbuf: [4]u8 = undefined;
             var stored: u32 = 0;
-            if (try self.get(ver_num_key, &vbuf)) |n| {
+            if (try self.getUnlocked(ver_num_key, &vbuf)) |n| {
                 if (n == 4) stored = format.rd32(&vbuf);
             }
             if (stored == version) return;
-            _ = try self.applyDefaults(defaults);
+            _ = try self.applyDefaultsUnlocked(defaults);
             format.wr32(&vbuf, version);
-            try self.set(ver_num_key, &vbuf);
+            try self.setUnlocked(ver_num_key, &vbuf);
         }
 
         // ---- iterator -----------------------------------------------------
@@ -337,6 +463,8 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
             db: *Self,
             sector_pos: u16 = 0,
             pos: u32 = 0,
+            /// False when the enclosing operation already holds the lock.
+            locking: bool = true,
             /// Live records produced so far (upstream `iterated_cnt`).
             iterated_count: u32 = 0,
             /// Sum of the value lengths produced so far (`iterated_value_bytes`).
@@ -347,6 +475,10 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
             name_buf: [cfg.max_name_len]u8 = undefined,
 
             pub fn next(self: *Iterator) Error!?Entry {
+                if (self.locking) {
+                    self.db.lockAcquire();
+                    defer self.db.lockRelease();
+                }
                 const db = self.db;
                 while (self.sector_pos < db.order_len) {
                     const si = db.order[self.sector_pos];
@@ -395,6 +527,10 @@ pub fn Kvdb(comptime F: type, comptime cfg: Config) type {
             /// Read the value of `entry`, verifying the record CRC32 in the same
             /// pass. Copies `min(buf.len, entry.value_len)` bytes.
             pub fn readValue(self: *Iterator, buf: []u8, entry: Entry) Error!u32 {
+                if (self.locking) {
+                    self.db.lockAcquire();
+                    defer self.db.lockRelease();
+                }
                 const db = self.db;
                 const rec = Record{
                     .addr = entry.addr,
@@ -1429,4 +1565,108 @@ test "kvdb getString and iterator statistics" {
     try std.testing.expectEqual(value_bytes, it.iterated_value_bytes);
     try std.testing.expect(@as(u64, it.iterated_obj_bytes) >= it.iterated_value_bytes);
     try std.testing.expectEqual(@as(u32, 2), it.iterated_count);
+}
+
+/// Counting lock used by the lock-hook tests: it flags any nesting, which would
+/// deadlock a real non-reentrant mutex.
+const LockProbe = struct {
+    var acquires: u32 = 0;
+    var releases: u32 = 0;
+    var depth: u32 = 0;
+    var max_depth: u32 = 0;
+    var nested: bool = false;
+
+    fn reset() void {
+        acquires = 0;
+        releases = 0;
+        depth = 0;
+        max_depth = 0;
+        nested = false;
+    }
+
+    fn acquire(ctx: ?*anyopaque) void {
+        _ = ctx;
+        if (depth != 0) nested = true;
+        depth += 1;
+        if (depth > max_depth) max_depth = depth;
+        acquires += 1;
+    }
+
+    fn release(ctx: ?*anyopaque) void {
+        _ = ctx;
+        depth -= 1;
+        releases += 1;
+    }
+};
+
+/// Sink that captures dump output in a fixed buffer.
+const Capture = struct {
+    buf: [512]u8 = undefined,
+    len: usize = 0,
+
+    fn write(ctx: ?*anyopaque, bytes: []const u8) void {
+        const self: *Capture = @ptrCast(@alignCast(ctx.?));
+        std.debug.assert(self.len + bytes.len <= self.buf.len);
+        @memcpy(self.buf[self.len..][0..bytes.len], bytes);
+        self.len += bytes.len;
+    }
+
+    fn slice(self: *const Capture) []const u8 {
+        return self.buf[0..self.len];
+    }
+};
+
+test "kvdb lock hooks wrap public operations and never nest" {
+    const Locked = Kvdb(TestFlash, .{ .sector_size = 4096, .sector_count = 4, .max_name_len = 32 });
+    LockProbe.reset();
+
+    var mem: [16 * 1024]u8 = undefined;
+    var db: Locked = undefined;
+    try db.mount(freshFlash(&mem));
+    db.setLock(.{ .acquire = LockProbe.acquire, .release = LockProbe.release });
+    try std.testing.expect(db.getLock() != null);
+
+    try db.set("k", "v");
+    var buf: [16]u8 = undefined;
+    _ = try db.get("k", &buf);
+    _ = try db.getString("k", &buf);
+    _ = try db.contains("k");
+    _ = try db.delete("missing");
+    var it = db.iterator();
+    if (try it.next()) |entry| _ = try it.readValue(&buf, entry);
+    _ = try db.count();
+    try db.check();
+
+    const defaults = [_]Locked.DefaultKv{.{ .key = "k", .value = "v" }};
+    _ = try db.applyDefaults(&defaults);
+    _ = try db.restoreDefaults(&defaults);
+    try db.autoUpdate(1, &defaults);
+    var cap: Capture = .{};
+    try db.dump(.{ .ctx = &cap, .writeFn = Capture.write });
+    try db.formatAll();
+
+    try std.testing.expect(LockProbe.acquires > 10);
+    try std.testing.expectEqual(LockProbe.acquires, LockProbe.releases);
+    try std.testing.expect(!LockProbe.nested);
+    try std.testing.expectEqual(@as(u32, 1), LockProbe.max_depth);
+    try std.testing.expectEqual(@as(u32, 0), LockProbe.depth);
+
+    // Clearing the hooks stops the counting.
+    db.setLock(null);
+    try std.testing.expect(db.getLock() == null);
+    const before = LockProbe.acquires;
+    try db.set("k", "again");
+    try std.testing.expectEqual(before, LockProbe.acquires);
+}
+
+test "kvdb dump quotes printable values and hexes binary ones" {
+    var mem: [16 * 1024]u8 = undefined;
+    var db: TestDb = undefined;
+    try db.mount(freshFlash(&mem));
+    try db.set("name", "flashdb");
+    try db.set("flags", &[_]u8{ 0x01, 0xFF });
+
+    var cap: Capture = .{};
+    try db.dump(.{ .ctx = &cap, .writeFn = Capture.write });
+    try std.testing.expectEqualStrings("name = \"flashdb\"\nflags = 0x01ff\n", cap.slice());
 }
