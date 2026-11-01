@@ -130,7 +130,7 @@ python tools\fetch_reference.py  # 拉取 FlashDB 2.2.99（固定 commit）到 r
 `0.18.0-dev.753+1420479be`）。Linux/macOS 下同一路径为 `.tools/zig/zig`。
 
 ```powershell
-.tools\zig\zig.exe build test          # 单元测试 + 集成测试 + 模型对拍（54/54）
+.tools\zig\zig.exe build test          # 单元测试 + 集成测试 + 模型对拍（55/55）
 python tools\coverage.py                 # 函数覆盖率（当前 100%，公开 API 100%）
 .tools\zig\zig.exe build               # 库 + 示例 + 宿主基准程序
 .tools\zig\zig.exe build bench         # 直接跑宿主基准 -> zig-out\bin\flashdb-bench.exe
@@ -167,7 +167,7 @@ python tools\compare_bench.py bench\results\c_wg8_host.json bench\results\zig_wg
 | `bench/` | 宿主基准：`bench/c/`（C 参考）、`bench/zig/`（Zig 实现）、`bench/SCENARIOS.md`（协议） |
 | `firmware/` | Cortex-M3/QEMU 固件对比：`firmware/c/`、`firmware/zig/`、`firmware/common/`（共用启动/半主机/栈测量） |
 | `tests/` | 集成测试、随机模型对拍 |
-| `docs/` | 设计、基准、测试、优化记录 |
+| `docs/` | 设计、基准、测试、优化记录；[`PARITY.md`](docs/PARITY.md) 是上游 FlashDB 功能对照表 |
 | `reference/` | 上游 FlashDB 2.2.99 源码（只读，仅用于差分测试，不参与构建） |
 | `scripts/`, `tools/` | 基准/固件/差分测试脚本与报告工具 |
 
@@ -179,7 +179,7 @@ python tools\compare_bench.py bench\results\c_wg8_host.json bench\results\zig_wg
 4. `Tsdb.setStatus` 只允许向前迁移（写新槽位）；向后迁移为 no-op（C 会重复编程同一粒度，在写一次器件上不安全）。
 5. 未移植文件模式（`FDB_USING_FILE_*`）；宿主测试用 `flashdb.sim.RamFlash`。
 6. 不支持大端。
-7. `FDB_KV_AUTO_UPDATE` 等价为显式 `Kvdb.autoUpdate(version, defaults)`。
+7. `FDB_KV_AUTO_UPDATE` 等价为显式 `Kvdb.autoUpdate(version, defaults)`；仅补缺失键。`fdb_kv_set_default` 等价为 `Kvdb.restoreDefaults(defaults)`，只补缺失键的版本是 `Kvdb.applyDefaults(defaults)`。
 8. 扇区几何在编译期确定（替代 `FDB_KVDB_CTRL_SET_SEC_SIZE` 等运行期 control 命令）。
 9. 不提供 lock/unlock 回调：数据库是独占的可变借用（Zig 借用检查保证同一时刻只有一个操作），多任务场景由调用方用互斥量包住整个数据库对象即可。
 
