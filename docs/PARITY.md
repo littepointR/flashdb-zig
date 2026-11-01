@@ -28,7 +28,7 @@
 |---|---|
 | `SET_SEC_SIZE` / `GET_SEC_SIZE` | `Config.sector_size`（编译期，参与布局与地址类型推导） |
 | `SET_MAX_SECTOR` / `SET_MAX_SIZE` | `Config.sector_count`（编译期，KVDB 3..32、TSDB 2..32） |
-| `SET_LOCK` / `SET_UNLOCK`（线程锁回调） | 未提供——库无全局状态，建议一个数据库实例由单一线程/任务独占 |
+| `SET_LOCK` / `SET_UNLOCK`（线程锁回调） | `setLock(?Lock)` / `getLock()`：运行时安装或清除 `acquire`/`release` 回调（`mount` 之后调用；内部调用不重复加锁） |
 | `SET_NOT_FORMAT` | `Config.not_formattable = true` |
 | `SET_FILE_MODE` / `SET_MAX_SIZE`（文件模式） | 未提供（见 §4） |
 | `FDB_TSDB_CTRL_SET_ROLLOVER` / `GET_ROLLOVER` | `setRollover(on)` / `getRollover()` |
@@ -78,7 +78,8 @@
    字节镜像不兼容，但逻辑行为由 `bench/diff` 逐操作对拍保证。
 2. **状态迁移显式报错**：见上表 `setStatus`。
 3. **没有锁**：上游的 lock/unlock 回调在这里不需要；多任务共享时请由调用方串行化。
-4. **配置编译期化**：没有运行期改扇区大小/文件模式的接口，换来更小的 RAM/ROM 与可推导的地址类型。
+4. **配置编译期化**：没有运行期改扇区大小/文件模式的接口，换来更小的 RAM/ROM 与可推导的地址类型；
+   锁是**可选**的运行时钩子（默认 null），不改变单线程路径的代码。
 5. **错误模型**：用 Zig error set（`SavedFull`、`NotFormatted`、`Corrupted`、`InvalidName`、
    `InitFailed`、`TimeNotIncreasing`、`ValueTooLarge`、`StatusNotAdvancing`）替代 `fdb_err_t`。
 6. **默认值/迁移是显式调用**：`applyDefaults` / `restoreDefaults` / `autoUpdate`，不在 mount 里隐式写 Flash。
@@ -87,8 +88,6 @@
 
 | 项目 | 现状与建议 |
 |---|---|
-| 多线程/中断锁回调 | 未实现。若要共享实例，可加 `Config.lock` 并在公开入口加钩子（会改动所有 API 的调用约定，且需避免嵌套加锁） |
-| 调试打印（`fdb_kv_print`、`FDB_INFO` 日志） | 未实现。可加可选的 `dump(sink)`（自定义 `write` 回调，不依赖 `std`）；示例已展示遍历打印 |
 | FAL 设备/分区名字注册表 | 不需要：`flash.Partition(Dev)` 已覆盖多分区，且无运行期字符串表开销 |
 | 同物理 Flash 混用不同写粒度 | 不支持（上游同样不支持）；每个驱动固定 `write_gran_bits` |
 | 运行期 control 命令、`deinit`、大端 | 分别见 §5：编译期配置、无资源、不支持 |
@@ -100,6 +99,10 @@
 - `restoreDefaults(defaults)`：等价上游 `fdb_kv_set_default`（强制写回默认值）。
 - `applyDefaults(defaults)`：等价 `FDB_KV_AUTO_UPDATE` 内部"只补缺失默认键"的步骤，可在每次 mount 后
   安全调用（已存在键不会被覆盖）。
+- `setLock(?Lock)` / `getLock()`：运行时锁钩子（等价 `SET_LOCK`/`SET_UNLOCK`），内部通过
+  unlocked 入口避免嵌套加锁；未安装锁时没有额外 RAM。
+- `dump(sink)`（KV 与 TS）：等价 `fdb_kv_print` 的调试输出，`Sink` 只要求一个 `write` 回调，
+  不引入 `std`；`src/sink.zig` 提供十进制/有符号/十六进制/引号格式化。
 - `autoUpdate(version, defaults)` 改为复用 `applyDefaults`，语义与上游 `kv_auto_update` 一致：
   仅当版本号变化时补缺失键并更新版本。
 - `getString(key, buf)`：等价上游 `fdb_kv_get` 的 NUL 语义（缓冲不足返回 `error.BufferTooSmall`）。

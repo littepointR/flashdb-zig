@@ -16,12 +16,12 @@
 
 | 维度 | C 原版 | Zig 重写 | 结果 |
 |---|---|---|---|
-| Cortex-M3 ROM（`-Os` / `ReleaseSmall`） | 12,700 B | **12,036 B** | -5.2% |
-| Cortex-M3 静态 RAM | 1,144 B | **760 B** | -33.6% |
-| Cortex-M3 峰值栈 | 1,208 B | **840 B** | -30.5% |
-| Cortex-M3 CPU 周期（KV+TS 全负载） | 532,601 | **170,780** | -67.9% |
+| Cortex-M3 ROM（`-Os` / `ReleaseSmall`） | 12,700 B | **12,372 B** | -2.6% |
+| Cortex-M3 静态 RAM | 1,144 B | **792 B** | -30.8% |
+| Cortex-M3 峰值栈 | 1,208 B | **848 B** | -29.8% |
+| Cortex-M3 CPU 周期（KV+TS 全负载） | 532,601 | **170,829** | -67.9% |
 | 宿主加权 Flash 流量（16 场景合计） | 56.88 M | **51.49 M** | -9.5%，逐场景均不高于 C |
-| 宿主耗时（16 场景合计） | 5.23 ms | **0.78 ms** | -85.0% |
+| 宿主耗时（16 场景合计） | 4.64 ms | **0.74 ms** | -84.0% |
 | KV 逻辑校验和 | — | — | 8/8 与 C 完全一致 |
 | KV+TS 行为差分（逐操作） | — | — | 3,066 行全部一致；逐次掉电恢复一致 |
 | TS 存储密度（16 KiB 分区） | 308 条 | **368 条** | +19.5% |
@@ -130,6 +130,26 @@ try db.mount(fl);
 运行 `zig-out\bin\example-file_backed.exe` 两次可以看到 `boot_count` 递增（镜像在
 `zig-out/file_flash_db.bin`）；`host/file_flash_test.zig` 随 `zig build test` 一起运行。
 
+## 锁钩子与 dump
+
+多任务/中断场景可以给数据库装一个锁：`setLock` 之后每个公开操作都会自动
+`acquire`/`release`（内部调用不会重复加锁；未装锁时只是一次空的可选值判断，零额外 RAM）。
+
+```zig
+db.setLock(.{ .acquire = Mutex.acquire, .release = Mutex.release, .ctx = &mutex });
+```
+
+`dump(sink)` 是上游 `fdb_kv_print` 的等价物：KV/TS 各有一个，通过调用方提供的
+`write` 回调输出（不依赖 `std`），可打印字符串用引号、二进制用十六进制。
+
+```zig
+fn uartWrite(ctx: ?*anyopaque, bytes: []const u8) void { _ = ctx; uart.write(bytes); }
+
+try db.dump(.{ .ctx = null, .writeFn = uartWrite });
+```
+
+见 [`examples/lock_and_dump.zig`](examples/lock_and_dump.zig)（`zig-out\bin\example-lock_and_dump.exe`）。
+
 ## 获取工具链与上游参考
 
 仓库本身不包含编译器与上游 C 源码（两者都可复现拉取，且不参与库的构建）：
@@ -149,7 +169,7 @@ python tools\fetch_reference.py  # 拉取 FlashDB 2.2.99（固定 commit）到 r
 `0.18.0-dev.753+1420479be`）。Linux/macOS 下同一路径为 `.tools/zig/zig`。
 
 ```powershell
-.tools\zig\zig.exe build test          # 单元测试 + 集成测试 + 模型对拍（58/58）
+.tools\zig\zig.exe build test          # 单元测试 + 集成测试 + 模型对拍（63/63）
 python tools\coverage.py                 # 函数覆盖率（当前 100%，公开 API 100%）
 .tools\zig\zig.exe build               # 库 + 示例 + 宿主基准程序
 .tools\zig\zig.exe build bench         # 直接跑宿主基准 -> zig-out\bin\flashdb-bench.exe

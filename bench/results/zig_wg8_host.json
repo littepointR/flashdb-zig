@@ -30,9 +30,9 @@
     "timer_resolution_ns": 100
   },
   "footprint": {
-    "sizeof_kvdb": 584,
-    "sizeof_tsdb": 56,
-    "sizeof_kv_iterator": 80,
+    "sizeof_kvdb": 616,
+    "sizeof_tsdb": 88,
+    "sizeof_kv_iterator": 96,
     "sizeof_partition": 16,
     "note": "sizeof_kvdb includes the 128-entry name cache, the per-sector state arrays and the embedded flash driver value (sizeof_partition); partition/geometry not counted"
   },
@@ -62,193 +62,193 @@
       "name": "kv_set_small",
       "ops": 64,
       "hits": 0,
-      "total_ns_median": 3000,
-      "ns_per_op": 46.875,
+      "total_ns_median": 2900,
+      "ns_per_op": 45.313,
       "runs": 5,
       "checksum": 411068509,
       "errcodes": {"ok":64},
       "flash": {"reads": 176, "read_bytes": 1172, "writes": 304, "write_bytes": 1328, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":8,"value_bytes":64,"samples_ns":[8500,3200,3000,2900,2900],"total_ns_min":2900,"total_ns_max":8500,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
+      "extra": {"entries":8,"value_bytes":64,"samples_ns":[8000,3100,2900,2800,2900],"total_ns_min":2800,"total_ns_max":8000,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
     },
     {
       "name": "kv_update_1k",
       "ops": 1000,
       "hits": 0,
-      "total_ns_median": 98800,
-      "ns_per_op": 98.800,
+      "total_ns_median": 95700,
+      "ns_per_op": 95.700,
       "runs": 5,
       "checksum": 2676218997,
       "errcodes": {"ok":1000},
       "flash": {"reads": 2840, "read_bytes": 25400, "writes": 5012, "write_bytes": 49120, "erases": 10, "erase_bytes": 40960},
-      "extra": {"entries":1,"value_bytes":32,"final_value_len_ok":true,"final_value_matches":true,"gc_sector_erases":10,"samples_ns":[100100,98700,98500,99000,98800],"total_ns_min":98500,"total_ns_max":100100,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
+      "extra": {"entries":1,"value_bytes":32,"final_value_len_ok":true,"final_value_matches":true,"gc_sector_erases":10,"samples_ns":[97100,97300,95700,94900,94800],"total_ns_min":94800,"total_ns_max":97300,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
     },
     {
       "name": "kv_get_hot",
       "ops": 2000,
       "hits": 2000,
-      "total_ns_median": 144900,
-      "ns_per_op": 72.450,
+      "total_ns_median": 138000,
+      "ns_per_op": 69.000,
       "runs": 5,
       "checksum": 3293967273,
       "errcodes": {},
       "flash": {"reads": 6000, "read_bytes": 93370, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":32,"value_bytes":1024,"sum_returned_bytes":64000,"samples_ns":[209500,144900,148600,141000,144000],"total_ns_min":141000,"total_ns_max":209500,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
+      "extra": {"entries":32,"value_bytes":1024,"sum_returned_bytes":64000,"samples_ns":[138100,138000,138000,144400,138000],"total_ns_min":138000,"total_ns_max":144400,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
     },
     {
       "name": "kv_get_miss",
       "ops": 500,
       "hits": 0,
-      "total_ns_median": 58900,
-      "ns_per_op": 117.800,
+      "total_ns_median": 56000,
+      "ns_per_op": 112.000,
       "runs": 5,
       "checksum": 3293967273,
       "errcodes": {},
       "flash": {"reads": 16000, "read_bytes": 160000, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":32,"value_bytes":1024,"sum_returned_bytes":0,"samples_ns":[62400,58800,58900,58700,58900],"total_ns_min":58700,"total_ns_max":62400,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
+      "extra": {"entries":32,"value_bytes":1024,"sum_returned_bytes":0,"samples_ns":[57200,55900,56000,55900,56500],"total_ns_min":55900,"total_ns_max":57200,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
     },
     {
       "name": "kv_delete",
       "ops": 192,
       "hits": 0,
-      "total_ns_median": 39900,
-      "ns_per_op": 207.813,
+      "total_ns_median": 38300,
+      "ns_per_op": 199.479,
       "runs": 5,
       "checksum": 3293967273,
       "errcodes": {"ok":192},
       "flash": {"reads": 9576, "read_bytes": 86700, "writes": 385, "write_bytes": 4396, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":32,"value_bytes":1024,"del_calls":96,"set_calls":96,"samples_ns":[42800,42200,39900,39500,39500],"total_ns_min":39500,"total_ns_max":42800,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
+      "extra": {"entries":32,"value_bytes":1024,"del_calls":96,"set_calls":96,"samples_ns":[41900,39100,38300,37800,37900],"total_ns_min":37800,"total_ns_max":41900,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
     },
     {
       "name": "kv_iterate",
       "ops": 100,
       "hits": 0,
-      "total_ns_median": 28000,
-      "ns_per_op": 280.000,
+      "total_ns_median": 28200,
+      "ns_per_op": 282.000,
       "runs": 5,
       "checksum": 3293967273,
       "errcodes": {},
       "flash": {"reads": 6400, "read_bytes": 47000, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":32,"value_bytes":1024,"entries_per_iter":32,"sum_value_len_per_iter":1024,"samples_ns":[28000,27700,28400,28900,27800],"total_ns_min":27700,"total_ns_max":28900,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
+      "extra": {"entries":32,"value_bytes":1024,"entries_per_iter":32,"sum_value_len_per_iter":1024,"samples_ns":[28500,28200,28200,28100,28100],"total_ns_min":28100,"total_ns_max":28500,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
     },
     {
       "name": "kv_mount",
       "ops": 100,
       "hits": 0,
-      "total_ns_median": 14300,
-      "ns_per_op": 143.000,
+      "total_ns_median": 13100,
+      "ns_per_op": 131.000,
       "runs": 5,
       "checksum": 3293967273,
       "errcodes": {"ok":100},
       "flash": {"reads": 3800, "read_bytes": 40200, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":32,"value_bytes":1024,"mount_ok":100,"samples_ns":[14600,14400,14200,14300,13900],"total_ns_min":13900,"total_ns_max":14600,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
+      "extra": {"entries":32,"value_bytes":1024,"mount_ok":100,"samples_ns":[13100,13100,13100,13100,13200],"total_ns_min":13100,"total_ns_max":13200,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
     },
     {
       "name": "kv_large",
       "ops": 50,
       "hits": 0,
-      "total_ns_median": 93900,
-      "ns_per_op": 1878.000,
+      "total_ns_median": 91800,
+      "ns_per_op": 1836.000,
       "runs": 5,
       "checksum": 853666419,
       "errcodes": {"ok":50},
       "flash": {"reads": 155, "read_bytes": 1207, "writes": 264, "write_bytes": 52008, "erases": 14, "erase_bytes": 57344},
-      "extra": {"entries":1,"value_bytes":1024,"samples_ns":[95500,93900,93600,93600,95000],"total_ns_min":93600,"total_ns_max":95500,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
+      "extra": {"entries":1,"value_bytes":1024,"samples_ns":[92700,92900,91800,91700,91800],"total_ns_min":91700,"total_ns_max":92900,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0}
     },
     {
       "name": "tsl_append",
       "ops": 368,
       "hits": 0,
-      "total_ns_median": 6100,
-      "ns_per_op": 16.576,
+      "total_ns_median": 5700,
+      "ns_per_op": 15.489,
       "runs": 5,
       "checksum": 3082380082,
       "errcodes": {"ok":368,"saved_full":1},
       "flash": {"reads": 7, "read_bytes": 168, "writes": 1121, "write_bytes": 15169, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries_after":368,"payload_bytes_after":11776,"appended":368,"append_calls":369,"saved_full":true,"samples_ns":[14300,6100,5600,5900,6100],"total_ns_min":5600,"total_ns_max":14300,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":16.576087,"normalized_read_bytes_per_entry":0.456522,"normalized_write_bytes_per_entry":41.220109,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":3.046196,"normalized_erases_per_entry":0.000000,"c_ref_capacity":308,"c_ref_prefix_checksum":841992802}
+      "extra": {"entries_after":368,"payload_bytes_after":11776,"appended":368,"append_calls":369,"saved_full":true,"samples_ns":[8900,6000,5700,5600,5400],"total_ns_min":5400,"total_ns_max":8900,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":15.489130,"normalized_read_bytes_per_entry":0.456522,"normalized_write_bytes_per_entry":41.220109,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":3.046196,"normalized_erases_per_entry":0.000000,"c_ref_capacity":308,"c_ref_prefix_checksum":841992802}
     },
     {
       "name": "tsl_append_rollover",
       "ops": 1104,
       "hits": 0,
-      "total_ns_median": 18300,
-      "ns_per_op": 16.576,
+      "total_ns_median": 17500,
+      "ns_per_op": 15.851,
       "runs": 5,
       "checksum": 2524761282,
       "errcodes": {"ok":1104},
       "flash": {"reads": 75, "read_bytes": 1800, "writes": 3367, "write_bytes": 45528, "erases": 8, "erase_bytes": 32768},
-      "extra": {"entries_after":368,"payload_bytes_after":11776,"capacity":368,"appends_ok":1104,"append_calls":1104,"samples_ns":[18500,17700,21100,18300,17600],"total_ns_min":17600,"total_ns_max":21100,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":49.728261,"normalized_read_bytes_per_entry":4.891304,"normalized_write_bytes_per_entry":123.717391,"normalized_erase_bytes_per_entry":89.043478,"normalized_writes_per_entry":9.149457,"normalized_erases_per_entry":0.021739}
+      "extra": {"entries_after":368,"payload_bytes_after":11776,"capacity":368,"appends_ok":1104,"append_calls":1104,"samples_ns":[17500,16900,17500,17600,17300],"total_ns_min":16900,"total_ns_max":17600,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":47.554348,"normalized_read_bytes_per_entry":4.891304,"normalized_write_bytes_per_entry":123.717391,"normalized_erase_bytes_per_entry":89.043478,"normalized_writes_per_entry":9.149457,"normalized_erases_per_entry":0.021739}
     },
     {
       "name": "tsl_iter_fwd",
       "ops": 20,
       "hits": 0,
-      "total_ns_median": 25800,
-      "ns_per_op": 1290.000,
+      "total_ns_median": 26000,
+      "ns_per_op": 1300.000,
       "runs": 5,
       "checksum": 3082380082,
       "errcodes": {},
       "flash": {"reads": 7440, "read_bytes": 90240, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries_after":368,"payload_bytes_after":11776,"entries_per_iter":368,"sum_payload_len_per_iter":11776,"populated":368,"samples_ns":[26100,25800,25700,25800,25900],"total_ns_min":25700,"total_ns_max":26100,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":70.108696,"normalized_read_bytes_per_entry":245.217391,"normalized_write_bytes_per_entry":0.000000,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":0.000000,"normalized_erases_per_entry":0.000000,"c_ref_capacity":308,"c_ref_prefix_checksum":841992802}
+      "extra": {"entries_after":368,"payload_bytes_after":11776,"entries_per_iter":368,"sum_payload_len_per_iter":11776,"populated":368,"samples_ns":[26000,25900,25900,26400,29200],"total_ns_min":25900,"total_ns_max":29200,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":70.652174,"normalized_read_bytes_per_entry":245.217391,"normalized_write_bytes_per_entry":0.000000,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":0.000000,"normalized_erases_per_entry":0.000000,"c_ref_capacity":308,"c_ref_prefix_checksum":841992802}
     },
     {
       "name": "tsl_iter_rev",
       "ops": 20,
       "hits": 0,
-      "total_ns_median": 25900,
-      "ns_per_op": 1295.000,
+      "total_ns_median": 27000,
+      "ns_per_op": 1350.000,
       "runs": 5,
       "checksum": 3082380082,
       "errcodes": {},
       "flash": {"reads": 7440, "read_bytes": 90240, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries_after":368,"payload_bytes_after":11776,"entries_per_iter":368,"sum_payload_len_per_iter":11776,"populated":368,"samples_ns":[26300,26200,25900,25800,25900],"total_ns_min":25800,"total_ns_max":26300,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":70.380435,"normalized_read_bytes_per_entry":245.217391,"normalized_write_bytes_per_entry":0.000000,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":0.000000,"normalized_erases_per_entry":0.000000,"c_ref_capacity":308,"c_ref_prefix_checksum":841992802}
+      "extra": {"entries_after":368,"payload_bytes_after":11776,"entries_per_iter":368,"sum_payload_len_per_iter":11776,"populated":368,"samples_ns":[27300,27000,27000,27000,27000],"total_ns_min":27000,"total_ns_max":27300,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":73.369565,"normalized_read_bytes_per_entry":245.217391,"normalized_write_bytes_per_entry":0.000000,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":0.000000,"normalized_erases_per_entry":0.000000,"c_ref_capacity":308,"c_ref_prefix_checksum":841992802}
     },
     {
       "name": "tsl_by_time",
       "ops": 500,
       "hits": 0,
-      "total_ns_median": 50700,
-      "ns_per_op": 101.400,
+      "total_ns_median": 43900,
+      "ns_per_op": 87.800,
       "runs": 5,
       "checksum": 125093188,
       "errcodes": {},
       "flash": {"reads": 10393, "read_bytes": 127368, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"queries":500,"sum_matches":9773,"sum_payload_len":312736,"populated":368,"total_matches":9773,"samples_ns":[45300,44300,353600,64800,50700],"total_ns_min":44300,"total_ns_max":353600,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":137.771739,"normalized_read_bytes_per_entry":346.108696,"normalized_write_bytes_per_entry":0.000000,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":0.000000,"normalized_erases_per_entry":0.000000,"c_ref_last_time":1307,"c_ref_sum":7283,"c_ref_checksum":1612847090}
+      "extra": {"queries":500,"sum_matches":9773,"sum_payload_len":312736,"populated":368,"total_matches":9773,"samples_ns":[44700,43900,43500,44500,43400],"total_ns_min":43400,"total_ns_max":44700,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":119.293478,"normalized_read_bytes_per_entry":346.108696,"normalized_write_bytes_per_entry":0.000000,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":0.000000,"normalized_erases_per_entry":0.000000,"c_ref_last_time":1307,"c_ref_sum":7283,"c_ref_checksum":1612847090}
     },
     {
       "name": "tsl_query_count",
       "ops": 500,
       "hits": 0,
-      "total_ns_median": 40300,
-      "ns_per_op": 80.600,
+      "total_ns_median": 48700,
+      "ns_per_op": 97.400,
       "runs": 5,
       "checksum": 125093188,
       "errcodes": {},
       "flash": {"reads": 10393, "read_bytes": 127368, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"queries":500,"sum_count":9773,"populated":368,"total_matches":9773,"samples_ns":[41100,40300,40100,40000,46800],"total_ns_min":40000,"total_ns_max":46800,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":109.510870,"normalized_read_bytes_per_entry":346.108696,"normalized_write_bytes_per_entry":0.000000,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":0.000000,"normalized_erases_per_entry":0.000000,"c_ref_last_time":1307,"c_ref_sum":7283,"c_ref_checksum":1612847090}
+      "extra": {"queries":500,"sum_count":9773,"populated":368,"total_matches":9773,"samples_ns":[49800,48800,48700,44900,43300],"total_ns_min":43300,"total_ns_max":49800,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":132.336957,"normalized_read_bytes_per_entry":346.108696,"normalized_write_bytes_per_entry":0.000000,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":0.000000,"normalized_erases_per_entry":0.000000,"c_ref_last_time":1307,"c_ref_sum":7283,"c_ref_checksum":1612847090}
     },
     {
       "name": "tsl_mount",
       "ops": 50,
       "hits": 0,
-      "total_ns_median": 2600,
-      "ns_per_op": 52.000,
+      "total_ns_median": 2100,
+      "ns_per_op": 42.000,
       "runs": 5,
       "checksum": 3082380082,
       "errcodes": {"ok":50},
       "flash": {"reads": 200, "read_bytes": 4800, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"mount_ok":50,"populated":368,"checksum_from_pre_mount_state":true,"samples_ns":[2600,2200,2100,3300,3200],"total_ns_min":2100,"total_ns_max":3300,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":7.065217,"normalized_read_bytes_per_entry":13.043478,"normalized_write_bytes_per_entry":0.000000,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":0.000000,"normalized_erases_per_entry":0.000000,"c_ref_capacity":308,"c_ref_prefix_checksum":841992802}
+      "extra": {"mount_ok":50,"populated":368,"checksum_from_pre_mount_state":true,"samples_ns":[2400,2100,2100,2100,2000],"total_ns_min":2000,"total_ns_max":2400,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":5.706522,"normalized_read_bytes_per_entry":13.043478,"normalized_write_bytes_per_entry":0.000000,"normalized_erase_bytes_per_entry":0.000000,"normalized_writes_per_entry":0.000000,"normalized_erases_per_entry":0.000000,"c_ref_capacity":308,"c_ref_prefix_checksum":841992802}
     },
     {
       "name": "tsl_clean",
       "ops": 20,
       "hits": 0,
-      "total_ns_median": 131700,
-      "ns_per_op": 6585.000,
+      "total_ns_median": 107000,
+      "ns_per_op": 5350.000,
       "runs": 5,
       "checksum": 3082380082,
       "errcodes": {},
       "flash": {"reads": 160, "read_bytes": 3840, "writes": 22480, "write_bytes": 303680, "erases": 80, "erase_bytes": 327680},
-      "extra": {"entries_after":368,"payload_bytes_after":11776,"cycles":20,"appends_per_cycle":368,"populated":368,"samples_ns":[131700,195500,133200,118400,127200],"total_ns_min":118400,"total_ns_max":195500,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":357.880435,"normalized_read_bytes_per_entry":10.434783,"normalized_write_bytes_per_entry":825.217391,"normalized_erase_bytes_per_entry":890.434783,"normalized_writes_per_entry":61.086957,"normalized_erases_per_entry":0.217391,"c_ref_capacity":308,"c_ref_prefix_checksum":841992802}
+      "extra": {"entries_after":368,"payload_bytes_after":11776,"cycles":20,"appends_per_cycle":368,"populated":368,"samples_ns":[107600,107600,106100,107000,105200],"total_ns_min":105200,"total_ns_max":107600,"flash_consistent":true,"errs_consistent":true,"set_bit_attempts":0,"nor_violations":0,"entries":368,"capacity":368,"max_entry_count":368,"bytes_per_entry":44,"normalized_ns_per_entry":290.760870,"normalized_read_bytes_per_entry":10.434783,"normalized_write_bytes_per_entry":825.217391,"normalized_erase_bytes_per_entry":890.434783,"normalized_writes_per_entry":61.086957,"normalized_erases_per_entry":0.217391,"c_ref_capacity":308,"c_ref_prefix_checksum":841992802}
     }
   ]
 }

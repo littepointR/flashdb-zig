@@ -58,187 +58,187 @@
       "checksum": 411068509,
       "errcodes": {"ok":64},
       "flash": {"reads": 442, "read_bytes": 7576, "writes": 434, "write_bytes": 2226, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":8,"value_bytes":64,"samples_ns":[28400,18600,18200,18100,18000],"total_ns_min":18000,"total_ns_max":28400,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries":8,"value_bytes":64,"samples_ns":[26100,18300,18200,18000,18000],"total_ns_min":18000,"total_ns_max":26100,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "kv_update_1k",
       "ops": 1000,
       "hits": 0,
-      "total_ns_median": 472200,
-      "ns_per_op": 472.200,
+      "total_ns_median": 403500,
+      "ns_per_op": 403.500,
       "runs": 5,
       "checksum": 2676218997,
       "errcodes": {"ok":1000},
       "flash": {"reads": 11110, "read_bytes": 219570, "writes": 7057, "write_bytes": 63252, "erases": 13, "erase_bytes": 53248},
-      "extra": {"entries":1,"value_bytes":32,"final_value_len_ok":true,"final_value_matches":true,"gc_sector_erases":13,"samples_ns":[602500,402000,472200,426100,502100],"total_ns_min":402000,"total_ns_max":602500,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries":1,"value_bytes":32,"final_value_len_ok":true,"final_value_matches":true,"gc_sector_erases":13,"samples_ns":[413700,402500,401500,408700,403500],"total_ns_min":401500,"total_ns_max":413700,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "kv_get_hot",
       "ops": 2000,
       "hits": 2000,
-      "total_ns_median": 364800,
-      "ns_per_op": 182.400,
+      "total_ns_median": 317100,
+      "ns_per_op": 158.550,
       "runs": 5,
       "checksum": 3293967273,
       "errcodes": {},
       "flash": {"reads": 12000, "read_bytes": 322740, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":32,"value_bytes":1024,"sum_returned_bytes":64000,"samples_ns":[343000,401800,321100,364800,403200],"total_ns_min":321100,"total_ns_max":403200,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries":32,"value_bytes":1024,"sum_returned_bytes":64000,"samples_ns":[317600,310900,317100,394700,315500],"total_ns_min":310900,"total_ns_max":394700,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "kv_get_miss",
       "ops": 500,
       "hits": 0,
-      "total_ns_median": 1708800,
-      "ns_per_op": 3417.600,
+      "total_ns_median": 1477500,
+      "ns_per_op": 2955.000,
       "runs": 5,
       "checksum": 3293967273,
       "errcodes": {},
       "flash": {"reads": 79500, "read_bytes": 1542000, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":32,"value_bytes":1024,"sum_returned_bytes":0,"samples_ns":[1770400,1849200,1708800,1589600,1528700],"total_ns_min":1528700,"total_ns_max":1849200,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries":32,"value_bytes":1024,"sum_returned_bytes":0,"samples_ns":[1465200,1840600,1477500,1473700,1490200],"total_ns_min":1465200,"total_ns_max":1840600,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "kv_delete",
       "ops": 192,
       "hits": 0,
-      "total_ns_median": 739200,
-      "ns_per_op": 3850.000,
+      "total_ns_median": 737900,
+      "ns_per_op": 3843.229,
       "runs": 5,
       "checksum": 3293967273,
       "errcodes": {"ok":192},
       "flash": {"reads": 38579, "read_bytes": 749982, "writes": 579, "write_bytes": 5733, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":32,"value_bytes":1024,"del_calls":96,"set_calls":96,"samples_ns":[768500,739200,725700,838900,722900],"total_ns_min":722900,"total_ns_max":838900,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries":32,"value_bytes":1024,"del_calls":96,"set_calls":96,"samples_ns":[741600,729900,737900,989100,723400],"total_ns_min":723400,"total_ns_max":989100,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "kv_iterate",
       "ops": 100,
       "hits": 0,
-      "total_ns_median": 424400,
-      "ns_per_op": 4244.000,
+      "total_ns_median": 301700,
+      "ns_per_op": 3017.000,
       "runs": 5,
       "checksum": 3293967273,
       "errcodes": {},
       "flash": {"reads": 15900, "read_bytes": 308400, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":32,"value_bytes":1024,"entries_per_iter":32,"sum_value_len_per_iter":1024,"samples_ns":[660900,466100,424400,300300,294900],"total_ns_min":294900,"total_ns_max":660900,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries":32,"value_bytes":1024,"entries_per_iter":32,"sum_value_len_per_iter":1024,"samples_ns":[301700,469000,311500,299600,299300],"total_ns_min":299300,"total_ns_max":469000,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "kv_mount",
       "ops": 100,
       "hits": 0,
-      "total_ns_median": 549500,
-      "ns_per_op": 5495.000,
+      "total_ns_median": 537700,
+      "ns_per_op": 5377.000,
       "runs": 5,
       "checksum": 3293967273,
       "errcodes": {"ok":100},
       "flash": {"reads": 23800, "read_bytes": 554800, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries":32,"value_bytes":1024,"mount_ok":100,"samples_ns":[671500,541500,545800,636400,549500],"total_ns_min":541500,"total_ns_max":671500,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries":32,"value_bytes":1024,"mount_ok":100,"samples_ns":[545100,544300,532700,535100,537700],"total_ns_min":532700,"total_ns_max":545100,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "kv_large",
       "ops": 50,
       "hits": 0,
-      "total_ns_median": 275800,
-      "ns_per_op": 5516.000,
+      "total_ns_median": 268800,
+      "ns_per_op": 5376.000,
       "runs": 5,
       "checksum": 853666419,
       "errcodes": {"ok":50},
       "flash": {"reads": 3391, "read_bytes": 100540, "writes": 410, "write_bytes": 52820, "erases": 14, "erase_bytes": 57344},
-      "extra": {"entries":1,"value_bytes":1024,"samples_ns":[275800,282100,274100,275800,278900],"total_ns_min":274100,"total_ns_max":282100,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries":1,"value_bytes":1024,"samples_ns":[272800,268200,268800,268900,268400],"total_ns_min":268200,"total_ns_max":272800,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "tsl_append",
       "ops": 336,
       "hits": 0,
-      "total_ns_median": 23900,
-      "ns_per_op": 71.131,
+      "total_ns_median": 17800,
+      "ns_per_op": 52.976,
       "runs": 5,
       "checksum": 4179764274,
       "errcodes": {"ok":336,"saved_full":1},
       "flash": {"reads": 3, "read_bytes": 96, "writes": 1372, "write_bytes": 15520, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries_after":336,"payload_bytes_after":10752,"appended":336,"append_calls":337,"saved_full":true,"samples_ns":[23900,24100,61000,22100,22900],"total_ns_min":22100,"total_ns_max":61000,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries_after":336,"payload_bytes_after":10752,"appended":336,"append_calls":337,"saved_full":true,"samples_ns":[18600,17600,20200,17800,17700],"total_ns_min":17600,"total_ns_max":20200,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "tsl_append_rollover",
       "ops": 1008,
       "hits": 0,
-      "total_ns_median": 59200,
-      "ns_per_op": 58.730,
+      "total_ns_median": 58300,
+      "ns_per_op": 57.837,
       "runs": 5,
       "checksum": 3740598066,
       "errcodes": {"ok":1008},
       "flash": {"reads": 19, "read_bytes": 608, "writes": 4127, "write_bytes": 46589, "erases": 8, "erase_bytes": 32768},
-      "extra": {"entries_after":336,"payload_bytes_after":10752,"capacity":336,"appends_ok":1008,"append_calls":1008,"samples_ns":[67200,59900,59200,59000,59200],"total_ns_min":59000,"total_ns_max":67200,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries_after":336,"payload_bytes_after":10752,"capacity":336,"appends_ok":1008,"append_calls":1008,"samples_ns":[58300,58400,58400,56900,56800],"total_ns_min":56800,"total_ns_max":58400,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "tsl_iter_fwd",
       "ops": 20,
       "hits": 0,
-      "total_ns_median": 70300,
-      "ns_per_op": 3515.000,
+      "total_ns_median": 68100,
+      "ns_per_op": 3405.000,
       "runs": 5,
       "checksum": 4179764274,
       "errcodes": {},
       "flash": {"reads": 6800, "read_bytes": 110080, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries_after":336,"payload_bytes_after":10752,"entries_per_iter":336,"sum_payload_len_per_iter":10752,"populated":336,"samples_ns":[71100,70400,69100,70300,69200],"total_ns_min":69100,"total_ns_max":71100,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries_after":336,"payload_bytes_after":10752,"entries_per_iter":336,"sum_payload_len_per_iter":10752,"populated":336,"samples_ns":[67900,68100,67900,68400,68200],"total_ns_min":67900,"total_ns_max":68400,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "tsl_iter_rev",
       "ops": 20,
       "hits": 0,
-      "total_ns_median": 68800,
-      "ns_per_op": 3440.000,
+      "total_ns_median": 69600,
+      "ns_per_op": 3480.000,
       "runs": 5,
       "checksum": 4179764274,
       "errcodes": {},
       "flash": {"reads": 6800, "read_bytes": 110080, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"entries_after":336,"payload_bytes_after":10752,"entries_per_iter":336,"sum_payload_len_per_iter":10752,"populated":336,"samples_ns":[70500,70000,68800,68800,68800],"total_ns_min":68800,"total_ns_max":70500,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries_after":336,"payload_bytes_after":10752,"entries_per_iter":336,"sum_payload_len_per_iter":10752,"populated":336,"samples_ns":[69800,70200,68100,67600,69600],"total_ns_min":67600,"total_ns_max":70200,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "tsl_by_time",
       "ops": 500,
       "hits": 0,
-      "total_ns_median": 147600,
-      "ns_per_op": 295.200,
+      "total_ns_median": 145800,
+      "ns_per_op": 291.600,
       "runs": 5,
       "checksum": 4064088662,
       "errcodes": {},
       "flash": {"reads": 11336, "read_bytes": 213248, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"queries":500,"sum_matches":8444,"sum_payload_len":270208,"populated":336,"samples_ns":[147600,160700,160600,145700,145300],"total_ns_min":145300,"total_ns_max":160700,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"queries":500,"sum_matches":8444,"sum_payload_len":270208,"populated":336,"samples_ns":[146400,145200,144200,145800,233100],"total_ns_min":144200,"total_ns_max":233100,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "tsl_query_count",
       "ops": 500,
       "hits": 0,
-      "total_ns_median": 147500,
-      "ns_per_op": 295.000,
+      "total_ns_median": 181900,
+      "ns_per_op": 363.800,
       "runs": 5,
       "checksum": 4064088662,
       "errcodes": {},
       "flash": {"reads": 11336, "read_bytes": 213248, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"queries":500,"sum_count":8444,"populated":336,"samples_ns":[153200,146900,146700,332600,147500],"total_ns_min":146700,"total_ns_max":332600,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"queries":500,"sum_count":8444,"populated":336,"samples_ns":[219000,229900,161800,181900,147700],"total_ns_min":147700,"total_ns_max":229900,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "tsl_mount",
       "ops": 50,
       "hits": 0,
-      "total_ns_median": 8800,
-      "ns_per_op": 176.000,
+      "total_ns_median": 8900,
+      "ns_per_op": 178.000,
       "runs": 5,
       "checksum": 4179764274,
       "errcodes": {"ok":50},
       "flash": {"reads": 400, "read_bytes": 12800, "writes": 0, "write_bytes": 0, "erases": 0, "erase_bytes": 0},
-      "extra": {"mount_ok":50,"populated":336,"checksum_from_pre_mount_state":true,"samples_ns":[9200,8800,8700,8800,8700],"total_ns_min":8700,"total_ns_max":9200,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"mount_ok":50,"populated":336,"checksum_from_pre_mount_state":true,"samples_ns":[9100,8900,8800,8900,8900],"total_ns_min":8800,"total_ns_max":9100,"flash_consistent":true,"errs_consistent":true}
     },
     {
       "name": "tsl_clean",
       "ops": 20,
       "hits": 0,
-      "total_ns_median": 405000,
-      "ns_per_op": 20250.000,
+      "total_ns_median": 416300,
+      "ns_per_op": 20815.000,
       "runs": 5,
       "checksum": 4179764274,
       "errcodes": {},
       "flash": {"reads": 160, "read_bytes": 5120, "writes": 27600, "write_bytes": 310800, "erases": 80, "erase_bytes": 327680},
-      "extra": {"entries_after":336,"payload_bytes_after":10752,"cycles":20,"appends_per_cycle":336,"populated":336,"samples_ns":[405000,398700,406700,393600,411000],"total_ns_min":393600,"total_ns_max":411000,"flash_consistent":true,"errs_consistent":true}
+      "extra": {"entries_after":336,"payload_bytes_after":10752,"cycles":20,"appends_per_cycle":336,"populated":336,"samples_ns":[421900,416300,605900,414800,402500],"total_ns_min":402500,"total_ns_max":605900,"flash_consistent":true,"errs_consistent":true}
     }
   ]
 }
