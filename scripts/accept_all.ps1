@@ -51,6 +51,10 @@ Run-Step "library tests (zig build test)" {
     & $zig build test
 }
 
+Run-Step "function coverage (100%)" {
+    & python tools/coverage.py --min-functions 100
+}
+
 if (-not $SkipC) {
     Run-Step "C harness self-checks" { & pwsh -NoProfile -File scripts/check_bench_c.ps1 }
     Run-Step "C reference host benchmark" { & pwsh -NoProfile -File scripts/build_bench_c.ps1 }

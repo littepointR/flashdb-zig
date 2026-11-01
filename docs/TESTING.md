@@ -5,7 +5,7 @@
 掉电一致性在每一层都单独扫过。
 
 当前状态：`zig build test` **54/54 全绿**（42 个库内单元测试 + 12 个集成/模型测试），
-函数覆盖率 **99.4%**（158/159，公开 API 52/52 = 100%，见 §7），
+函数覆盖率 **100%**（159/159，公开 API 52/52，见 §6），
 `scripts/diff.ps1` **KV + TS 双向对拍 PASS**，C 与 Zig 固件校验和逐字节一致。
 
 ## 1. 单元测试（`src/**` 内，`zig build test`）
@@ -106,26 +106,29 @@ Zig 0.18 的工具链没有暴露 LLVM 的源码级覆盖率插桩（CLI 无 `-f
 用同一套 54 个测试（单元 + 集成 + 随机模型）跑一遍，统计命中的函数比例。
 
 当前实测（`python tools/coverage.py`，JSON 报告写入 `build/coverage/report.json`）：
+**函数覆盖率 100%（159/159：158 个运行期命中 + 1 个仅在编译期执行的函数），公开 API 52/52**。
 
-| 文件 | 函数数 | 已覆盖 | 覆盖率 |
-|---|---:|---:|---:|
-| `src/crc.zig` | 4 | 4 | 100% |
-| `src/device.zig` | 10 | 10 | 100% |
-| `src/flash.zig` | 5 | 5 | 100% |
-| `src/format.zig` | 20 | 19 | 95.0% |
-| `src/kvdb.zig` | 49 | 49 | 100% |
-| `src/sim.zig` | 12 | 12 | 100% |
-| `src/tsdb.zig` | 59 | 59 | 100% |
-| **合计** | **159** | **158** | **99.4%** |
-| 公开 API 函数 | 52 | 52 | **100%** |
+| 文件 | 函数数 | 运行期命中 | 编译期命中 | 覆盖率 |
+|---|---:|---:|---:|---:|
+| `src/crc.zig` | 4 | 4 | 0 | 100% |
+| `src/device.zig` | 10 | 10 | 0 | 100% |
+| `src/flash.zig` | 5 | 5 | 0 | 100% |
+| `src/format.zig` | 20 | 19 | 1 | 100% |
+| `src/kvdb.zig` | 49 | 49 | 0 | 100% |
+| `src/sim.zig` | 12 | 12 | 0 | 100% |
+| `src/tsdb.zig` | 59 | 59 | 0 | 100% |
+| **合计** | **159** | **158** | **1** | **100%** |
+| 公开 API 函数 | 52 | 52 | 0 | **100%** |
 
-唯一未命中项是 `format.comptimePow2`——它只在 `comptime` 上下文执行编译期对齐断言，运行期
-不可达，因此必然为 0；type 工厂（`Kvdb(...) type`、`Partition(...) type` 等纯 comptime 函数）
-不计入分母。CI 以 `--min-functions 99` 运行该脚本防止覆盖率回退。
+关于"编译期命中"：`format.comptimePow2` 是纯编译期的对齐断言（`comptime comptimePow2(g)`），
+运行期不可达，无法触发运行期探针；但它会在编译测试二进制时被 `KvLayout`/`TsLayout` 的
+comptime 块实际执行。工具对"所有引用都处于 comptime 上下文"的函数做静态分类并单独计一列，
+不把它们混进运行期数字。type 工厂（`Kvdb(...) type`、`Partition(...) type` 等纯 comptime
+函数）与测试辅助函数不计入分母。CI 以 `--min-functions 100` 运行该脚本，覆盖率回退即红灯。
 
 ```powershell
-python tools\coverage.py                    # 报告 + build/coverage/report.json
-python tools\coverage.py --min-functions 99 # 低于阈值时非零退出（CI 使用）
+python tools\coverage.py                     # 报告 + build/coverage/report.json
+python tools\coverage.py --min-functions 100 # 低于阈值时非零退出（CI 使用）
 ```
 
 ## 7. 一键验收

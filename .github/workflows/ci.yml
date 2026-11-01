@@ -40,8 +40,8 @@ jobs:
       - name: Build the library, examples and host benchmark
         run: zig build --summary all
 
-      - name: Function coverage (>= 99%)
-        run: python tools/coverage.py --min-functions 99
+      - name: Function coverage (must be 100%)
+        run: python tools/coverage.py --min-functions 100
 
       - name: Host benchmark self-checks (Linux)
         if: runner.os == 'Linux'

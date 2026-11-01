@@ -226,6 +226,58 @@ def instrument(text: str, funcs: list[dict], first_id: int) -> tuple[str, list[d
     return out, entries
 
 
+def is_comptime_context(code: str, pos: int) -> bool:
+    """True when the token at `pos` is evaluated at compile time.
+
+    Two forms are recognised: a reference inside a `comptime { ... }` block and
+    a reference prefixed by the `comptime` keyword (`comptime f(x)`). Such code
+    runs while the test binary is compiled, so a function whose every reference
+    is of this form is exercised by the suite at build time even though no probe
+    can fire at runtime.
+    """
+    stack: list[bool] = []
+    i = 0
+    while i < pos:
+        if code[i] == "{":
+            j = i - 1
+            while j >= 0 and code[j] in " \t\r\n":
+                j -= 1
+            k = j
+            while k >= 0 and (code[k].isalnum() or code[k] == "_"):
+                k -= 1
+            stack.append(code[k + 1 : j + 1] == "comptime")
+        elif code[i] == "}":
+            if stack:
+                stack.pop()
+        i += 1
+    if stack and stack[-1]:
+        return True
+    j = pos - 1
+    while j >= 0 and code[j] in " \t\r\n":
+        j -= 1
+    k = j
+    while k >= 0 and (code[k].isalnum() or code[k] == "_"):
+        k -= 1
+    return code[k + 1 : j + 1] == "comptime"
+
+
+def comptime_only_names(path: str, funcs: list[dict]) -> set[str]:
+    """Names of functions in `path` that are only ever evaluated at compile time."""
+    with open(path, encoding="utf-8") as f:
+        code = strip_noise(f.read())
+    out: set[str] = set()
+    for fn in funcs:
+        pat = re.compile(r"\b" + re.escape(fn["name"]) + r"\b\s*\(")
+        refs = []
+        for m in pat.finditer(code):
+            if re.search(r"fn\s+$", code[: m.start()]):
+                continue  # the definition itself
+            refs.append(m.start())
+        if refs and all(is_comptime_context(code, p) for p in refs):
+            out.add(fn["name"])
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--min-functions", type=float, default=0.0, help="fail below this function coverage percentage")
@@ -319,37 +371,69 @@ def main() -> int:
         entry["hit"] = entry["id"] in hit_ids
         by_file.setdefault(entry["file"], []).append(entry)
 
+    # A function that is only referenced from comptime contexts runs while the
+    # test binary is built, so no runtime probe can ever fire for it. Classify
+    # those statically (from the untouched sources) and count them separately.
+    for path, entries in by_file.items():
+        unhit = [e for e in entries if not e["hit"]]
+        if not unhit:
+            continue
+        names = comptime_only_names(os.path.join(ROOT, path), unhit)
+        for entry in unhit:
+            entry["comptime"] = entry["name"] in names
+
     total = len(manifest)
-    covered = sum(1 for e in manifest if e["hit"])
+    runtime_covered = sum(1 for e in manifest if e["hit"])
+    compile_time_covered = sum(1 for e in manifest if e.get("comptime") and not e["hit"])
+    covered = runtime_covered + compile_time_covered
     pub_total = sum(1 for e in manifest if e["pub"])
-    pub_covered = sum(1 for e in manifest if e["pub"] and e["hit"])
+    pub_covered = sum(1 for e in manifest if e["pub"] and (e["hit"] or e.get("comptime")))
 
     print()
-    print(f"{'file':22s} {'functions':>9s} {'covered':>8s} {'coverage':>9s}   unhit")
-    print("-" * 78)
+    print(f"{'file':22s} {'functions':>9s} {'runtime':>8s} {'comptime':>9s} {'coverage':>9s}   uncovered")
+    print("-" * 92)
     for path in sorted(by_file):
         entries = by_file[path]
         n = len(entries)
-        c = sum(1 for e in entries if e["hit"])
-        unhit = ", ".join(e["name"] for e in entries if not e["hit"])
-        print(f"{path:22s} {n:9d} {c:8d} {100.0 * c / n:8.1f}%   {unhit}")
-    print("-" * 78)
-    print(f"{'total':22s} {total:9d} {covered:8d} {100.0 * covered / total:8.1f}%")
-    print(f"public API functions   {pub_total:9d} {pub_covered:8d} {100.0 * pub_covered / max(pub_total, 1):8.1f}%")
+        rt = sum(1 for e in entries if e["hit"])
+        ct = sum(1 for e in entries if e.get("comptime") and not e["hit"])
+        unhit = ", ".join(e["name"] for e in entries if not (e["hit"] or e.get("comptime")))
+        print(f"{path:22s} {n:9d} {rt:8d} {ct:9d} {100.0 * (rt + ct) / n:8.1f}%   {unhit}")
+    print("-" * 92)
+    print(
+        f"{'total':22s} {total:9d} {runtime_covered:8d} {compile_time_covered:9d} "
+        f"{100.0 * covered / total:8.1f}%"
+    )
+    print(
+        f"public API functions   {pub_total:9d} {pub_covered:8d}"
+        f"{'':9s} {100.0 * pub_covered / max(pub_total, 1):8.1f}%"
+    )
 
     report = {
         "kind": "function-coverage",
-        "note": "Zig 0.18 has no LLVM source-based coverage, so this is function coverage from generated one-shot probes.",
+        "note": (
+            "Zig 0.18 has no LLVM source-based coverage, so this is function coverage from generated one-shot probes. "
+            "Functions whose every reference is in a comptime context are counted as compile-time covered: they are "
+            "executed while the test binary is built and cannot fire a runtime probe."
+        ),
         "total_functions": total,
+        "runtime_covered_functions": runtime_covered,
+        "compile_time_covered_functions": compile_time_covered,
         "covered_functions": covered,
         "function_coverage_pct": round(100.0 * covered / total, 2) if total else 0.0,
+        "compile_time_only": sorted(e["name"] for e in manifest if e.get("comptime") and not e["hit"]),
         "public_functions": pub_total,
         "covered_public_functions": pub_covered,
         "files": {
             path: {
                 "functions": len(entries),
-                "covered": sum(1 for e in entries if e["hit"]),
-                "unhit": [e["name"] for e in entries if not e["hit"]],
+                "runtime_covered": sum(1 for e in entries if e["hit"]),
+                "compile_time_covered": sum(
+                    1 for e in entries if e.get("comptime") and not e["hit"]
+                ),
+                "uncovered": [
+                    e["name"] for e in entries if not (e["hit"] or e.get("comptime"))
+                ],
             }
             for path, entries in sorted(by_file.items())
         },
