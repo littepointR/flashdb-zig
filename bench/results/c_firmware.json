@@ -1,0 +1,170 @@
+{
+  "impl": "c",
+  "version": "fdb-2.2.99",
+  "target": "thumb-freestanding-eabi",
+  "cpu": "cortex_m3",
+  "machine": "mps2-an385",
+  "opt": "Os",
+  "write_gran": 8,
+  "compiler": "zig cc 0.18.0-dev.753+1420479be",
+  "toolchain": {
+    "zig": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\.tools\\zig\\zig.exe",
+    "zig_version": "0.18.0-dev.753+1420479be",
+    "size_tool": "D:\\Program Files\\LLVM\\bin\\llvm-size.exe",
+    "qemu": "D:\\Program Files\\qemu\\qemu-system-arm.exe"
+  },
+  "flags": {
+    "cycles": true,
+    "phases": true,
+    "cflags": [
+      "-target",
+      "thumb-freestanding-eabi",
+      "-mcpu=cortex_m3",
+      "-Os",
+      "-std=gnu11",
+      "-w",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-fno-common",
+      "-fno-builtin",
+      "-fno-stack-protector",
+      "-ffreestanding",
+      "-fno-asynchronous-unwind-tables",
+      "-fno-unwind-tables",
+      "-DFDB_WRITE_GRAN=8",
+      "-I",
+      "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\firmware\\common",
+      "-I",
+      "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\firmware\\c\\include",
+      "-I",
+      "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\reference\\FlashDB\\inc",
+      "-I",
+      "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\reference\\FlashDB\\port\\fal\\inc",
+      "-nostdlib",
+      "-Wl,--gc-sections",
+      "-Wl,-T,D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\firmware\\common\\mps2_an385.ld",
+      "-Wl,-e,Reset_Handler"
+    ],
+    "cycles_define": "-DFW_CYCLES=1 (instrumented variant)",
+    "phases_define": "-DHARNESS_STACK_PHASES=1 (instrumented variant)",
+    "qemu": [
+      "-M",
+      "mps2-an385",
+      "-cpu",
+      "cortex-m3",
+      "-nographic",
+      "-semihosting",
+      "-icount",
+      "shift=0"
+    ],
+    "cycle_note": "QEMU 8.2 does not model the Cortex-M3 DWT (DEMCR/DWT_CTRL read 0); the firmware probes DWT first and falls back to the SysTick 24-bit down-counter, which under -icount shift=0 ticks every 40 instructions (25 MHz tick clock, 1 ns per instruction). cycles_src= in RESULT says which source was used."
+  },
+  "workload": {
+    "kv_keys": 64,
+    "kv_updates": 32,
+    "kv_churn": 1500,
+    "kv_churn_keys": 16,
+    "kv_value_len": 24,
+    "ts_appends": 200,
+    "ts_payload_len": 16,
+    "ts_base_time": 1000,
+    "tsdb_max_len": 64,
+    "sim_flash_len": 32768,
+    "sim_flash_blk": 4096,
+    "kv_partition_len": 16384,
+    "ts_partition_len": 16384,
+    "kv_partition_offset": 0,
+    "ts_partition_offset": 16384,
+    "source": "firmware/common/workload_spec.h"
+  },
+  "variants": {
+    "plain": {
+      "variant": "plain",
+      "elf": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\fw_c_plain.elf",
+      "sections": {
+        "text": 11032,
+        "rodata": 1612,
+        "data": 56,
+        "bss": 1088
+      },
+      "rom": 12700,
+      "static_ram": 1144,
+      "stack_limit": 8192,
+      "stack": 1208,
+      "stack_init": 472,
+      "results": {
+        "kv_writes": 1596,
+        "kv_gets": 64,
+        "kv_iterated": 64,
+        "kv_checksum": "0x4b3486a4",
+        "kv_iter_checksum": "0x0e250daa",
+        "ts_appends": 200,
+        "ts_iterated": 200,
+        "ts_checksum": "0x10d90680"
+      },
+      "result_line": "RESULT text=11032 rodata=1612 data=56 bss=1088 sim_flash=32768 stack=1208 stack_init=472 stack_limit=8192 kv_writes=1596 kv_gets=64 kv_iterated=64 kv_checksum=0x4b3486a4 kv_iter_checksum=0x0e250daa ts_appends=200 ts_iterated=200 ts_checksum=0x10d90680 rc=0",
+      "qemu": {
+        "exit_code": 0,
+        "log": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\qemu_c_plain.log"
+      },
+      "repeatable": true
+    },
+    "instrumented": {
+      "variant": "instrumented",
+      "elf": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\fw_c_instrumented.elf",
+      "sections": {
+        "text": 12596,
+        "rodata": 1964,
+        "data": 56,
+        "bss": 1096
+      },
+      "rom": 14616,
+      "static_ram": 1152,
+      "stack_limit": 8192,
+      "stack": 1288,
+      "stack_init": 552,
+      "results": {
+        "kv_writes": 1596,
+        "kv_gets": 64,
+        "kv_iterated": 64,
+        "kv_checksum": "0x4b3486a4",
+        "kv_iter_checksum": "0x0e250daa",
+        "ts_appends": 200,
+        "ts_iterated": 200,
+        "ts_checksum": "0x10d90680"
+      },
+      "result_line": "RESULT text=12596 rodata=1964 data=56 bss=1096 sim_flash=32768 stack=1288 stack_init=552 stack_limit=8192 st_set=752 st_get=792 st_iter=616 st_gc=1328 st_ts_append=584 st_ts_iter=656 kv_writes=1596 kv_gets=64 kv_iterated=64 kv_checksum=0x4b3486a4 kv_iter_checksum=0x0e250daa ts_appends=200 ts_iterated=200 ts_checksum=0x10d90680 cycles_src=systick cycles_tick_hz=25000000 cycles_calib_insn=20000 cycles_calib_ticks=500 cycles_mount=6589 cycles_kv=520236 cycles_ts=5776 cycles_total=532601 cyc_st_set=508 cyc_st_get=366 cyc_st_iter=6025 cyc_st_gc=436914 cyc_st_ts_append=350 cyc_st_ts_iter=2719 rc=0",
+      "qemu": {
+        "exit_code": 0,
+        "log": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\qemu_c_instrumented.log"
+      },
+      "repeatable": true,
+      "stack_phases": {
+        "set": 752,
+        "get": 792,
+        "iter": 616,
+        "gc": 1328,
+        "ts_append": 584,
+        "ts_iter": 656
+      },
+      "cycles": {
+        "source": "systick",
+        "mount": 6589,
+        "kv": 520236,
+        "ts": 5776,
+        "total": 532601,
+        "tick_hz": 25000000,
+        "calib_insn": 20000,
+        "calib_ticks": 500,
+        "phases": {
+          "set": 508,
+          "get": 366,
+          "iter": 6025,
+          "gc": 436914,
+          "ts_append": 350,
+          "ts_iter": 2719
+        }
+      }
+    }
+  }
+}

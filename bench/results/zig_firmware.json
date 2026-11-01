@@ -1,0 +1,196 @@
+{
+  "impl": "zig",
+  "version": "flashdb-zig",
+  "workload_scope": "kv+ts",
+  "target": "thumb-freestanding-eabi",
+  "cpu": "cortex_m3",
+  "machine": "mps2-an385",
+  "opt": "ReleaseSmall",
+  "write_gran": 8,
+  "compiler": "zig 0.18.0-dev.753+1420479be (Zig frontend for the workload/DB; zig cc for the C harness)",
+  "toolchain": {
+    "zig": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\.tools\\zig\\zig.exe",
+    "zig_version": "0.18.0-dev.753+1420479be",
+    "size_tool": "D:\\Program Files\\LLVM\\bin\\llvm-size.exe",
+    "qemu": "D:\\Program Files\\qemu\\qemu-system-arm.exe",
+    "c_harness_compiler": "zig cc 0.18.0-dev.753+1420479be",
+    "git_revision": "2842ac7",
+    "git_dirty": true
+  },
+  "flags": {
+    "cycles": true,
+    "phases": true,
+    "zig_obj_cflags": [
+      "build-obj",
+      "-target",
+      "thumb-freestanding-eabi",
+      "-mcpu=cortex_m3",
+      "-O",
+      "ReleaseSmall",
+      "--dep",
+      "flashdb",
+      "-Mroot=firmware/zig/<variant root>.zig",
+      "-Mflashdb=src/flashdb.zig"
+    ],
+    "cflags": [
+      "-target",
+      "thumb-freestanding-eabi",
+      "-mcpu=cortex_m3",
+      "-Os",
+      "-std=gnu11",
+      "-w",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-fno-common",
+      "-fno-builtin",
+      "-fno-stack-protector",
+      "-ffreestanding",
+      "-fno-asynchronous-unwind-tables",
+      "-fno-unwind-tables",
+      "-Wl,--gc-sections",
+      "-Wl,-T,firmware/common/mps2_an385.ld",
+      "-Wl,-e,Reset_Handler"
+    ],
+    "zig_runtime": "Zig compiler_rt / freestanding libc (zig cc default, replaces libc_stubs.c: same EABI mem*/64-bit helpers the C image gets from firmware/c/libc_stubs.c)",
+    "harness_sources": [
+      "firmware/common/startup_armv7m.S",
+      "firmware/common/semihost.c",
+      "firmware/common/cycles.c",
+      "firmware/common/stack.c"
+    ],
+    "zig_sources": [
+      "firmware/zig/main.zig",
+      "firmware/zig/main_instrumented.zig",
+      "firmware/zig/main_cycles.zig",
+      "firmware/zig/main_phases.zig",
+      "firmware/zig/fw.zig"
+    ],
+    "cycles_define": "FW_CYCLES semantics selected by the Zig root file (main_cycles.zig / main_instrumented.zig); C harness gets -DFW_CYCLES=1",
+    "phases_define": "HARNESS_STACK_PHASES semantics selected by the Zig root file (main_phases.zig / main_instrumented.zig); C harness gets -DHARNESS_STACK_PHASES=1",
+    "qemu": [
+      "-M",
+      "mps2-an385",
+      "-cpu",
+      "cortex-m3",
+      "-nographic",
+      "-semihosting",
+      "-icount",
+      "shift=0"
+    ],
+    "cycle_note": "QEMU 8.2 does not model the Cortex-M3 DWT (DEMCR/DWT_CTRL read 0); the C harness probes DWT first and falls back to the SysTick 24-bit down-counter, which under -icount shift=0 ticks every 40 instructions (25 MHz tick clock, 1 ns per instruction). cycles_src= in RESULT says which source was used. The Zig image calls the same unmodified firmware/common/cycles.c module.",
+    "fairness_note": "firmware/common/{startup_armv7m.S,semihost.c,cycles.c,stack.c} and firmware/common/mps2_an385.ld are compiled UNMODIFIED into both the C and the Zig image, so the harness overhead (vectors, semihosting, cycle counter, stack painting, linker script) is byte-identical on both sides. The only deliberately different runtime piece is the compiler support library: the C build links -nostdlib + firmware/c/libc_stubs.c, the Zig build links Zig compiler_rt, which supplies the same EABI mem*/64-bit helper surface (firmware/README.md portability note 3). Only the workload + database code is Zig (src/flashdb.zig, firmware/zig/fw.zig)."
+  },
+  "workload": {
+    "includes": [
+      "kvdb",
+      "tsdb"
+    ],
+    "kv_keys": 64,
+    "kv_updates": 32,
+    "kv_churn": 1500,
+    "kv_churn_keys": 16,
+    "kv_value_len": 24,
+    "ts_appends": 200,
+    "ts_payload_len": 16,
+    "ts_base_time": 1000,
+    "tsdb_max_len": 64,
+    "sim_flash_len": 32768,
+    "sim_flash_blk": 4096,
+    "kv_partition_len": 16384,
+    "ts_partition_len": 16384,
+    "kv_partition_offset": 0,
+    "ts_partition_offset": 16384,
+    "source": "firmware/common/workload_spec.h",
+    "zig_source": "firmware/zig/fw.zig"
+  },
+  "variants": {
+    "plain": {
+      "variant": "plain",
+      "elf": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\fw_zig_plain.elf",
+      "sections": {
+        "text": 10204,
+        "rodata": 1580,
+        "data": 24,
+        "bss": 736
+      },
+      "rom": 11808,
+      "static_ram": 760,
+      "stack_limit": 8192,
+      "stack": 808,
+      "stack_init": 408,
+      "results": {
+        "kv_writes": 1596,
+        "kv_gets": 64,
+        "kv_iterated": 64,
+        "kv_checksum": "0x4b3486a4",
+        "kv_iter_checksum": "0x0e250daa",
+        "ts_appends": 200,
+        "ts_iterated": 200,
+        "ts_checksum": "0x10d90680"
+      },
+      "result_line": "RESULT text=10204 rodata=1580 data=24 bss=736 sim_flash=32768 stack=808 stack_init=408 stack_limit=8192 kv_writes=1596 kv_gets=64 kv_iterated=64 kv_checksum=0x4b3486a4 kv_iter_checksum=0x0e250daa ts_appends=200 ts_iterated=200 ts_checksum=0x10d90680 rc=0",
+      "qemu": {
+        "exit_code": 0,
+        "log": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\qemu_zig_plain.log"
+      },
+      "repeatable": true
+    },
+    "instrumented": {
+      "variant": "instrumented",
+      "elf": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\fw_zig_instrumented.elf",
+      "sections": {
+        "text": 12504,
+        "rodata": 1968,
+        "data": 32,
+        "bss": 752
+      },
+      "rom": 14504,
+      "static_ram": 784,
+      "stack_limit": 8192,
+      "stack": 888,
+      "stack_init": 504,
+      "results": {
+        "kv_writes": 1596,
+        "kv_gets": 64,
+        "kv_iterated": 64,
+        "kv_checksum": "0x4b3486a4",
+        "kv_iter_checksum": "0x0e250daa",
+        "ts_appends": 200,
+        "ts_iterated": 200,
+        "ts_checksum": "0x10d90680"
+      },
+      "result_line": "RESULT text=12504 rodata=1968 data=32 bss=752 sim_flash=32768 stack=888 stack_init=504 stack_limit=8192 st_set=992 st_get=920 st_iter=760 st_gc=992 st_ts_append=648 st_ts_iter=768 kv_writes=1596 kv_gets=64 kv_iterated=64 kv_checksum=0x4b3486a4 kv_iter_checksum=0x0e250daa ts_appends=200 ts_iterated=200 ts_checksum=0x10d90680 cycles_src=systick cycles_tick_hz=25000000 cycles_calib_insn=20000 cycles_calib_ticks=500 cycles_mount=5133 cycles_kv=159999 cycles_ts=5727 cycles_total=170859 cyc_st_set=372 cyc_st_get=351 cyc_st_iter=3144 cyc_st_gc=119762 cyc_st_ts_append=345 cyc_st_ts_iter=2579 rc=0",
+      "qemu": {
+        "exit_code": 0,
+        "log": "D:\\littepoint\\Documents\\WorkingSpace\\things\\flashdb-zig\\build\\fw\\qemu_zig_instrumented.log"
+      },
+      "repeatable": true,
+      "stack_phases": {
+        "set": 992,
+        "get": 920,
+        "iter": 760,
+        "gc": 992,
+        "ts_append": 648,
+        "ts_iter": 768
+      },
+      "cycles": {
+        "source": "systick",
+        "mount": 5133,
+        "kv": 159999,
+        "ts": 5727,
+        "total": 170859,
+        "tick_hz": 25000000,
+        "calib_insn": 20000,
+        "calib_ticks": 500,
+        "phases": {
+          "set": 372,
+          "get": 351,
+          "iter": 3144,
+          "gc": 119762,
+          "ts_append": 345,
+          "ts_iter": 2579
+        }
+      }
+    }
+  }
+}
